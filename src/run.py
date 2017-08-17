@@ -75,12 +75,12 @@ def run(load_sess=False, output_graph=True):
     # X_train = X_train.drop(['Timestamp', 'Date', 'Time'], axis=1)
     n_actions = 7
     n_features = X_train.shape[1]
-    MEMORY_SIZE = 50000
+    MEMORY_SIZE = 100000
     # e_greedy_increment = 0.000001
     e_greedy_increment = 0.00002
     reward_decay = 0.95
     learning_rate = 0.00005
-    replace_target_iter = 5000
+    replace_target_iter = 10000
     dueling = True
     prioritized = True
 
@@ -103,8 +103,8 @@ def run(load_sess=False, output_graph=True):
         reward_decay=reward_decay, learning_rate=learning_rate, replace_target_iter=replace_target_iter,
         e_greedy_increment=e_greedy_increment, dueling=dueling, output_graph=output_graph, prioritized=prioritized)
 
-    # if (load_sess):
-    #     oracle.load()
+    if (load_sess):
+        oracle.load()
 
     saver = tf.train.Saver()
     last_save_step = 0

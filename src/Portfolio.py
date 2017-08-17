@@ -92,13 +92,13 @@ class Portfolio:
             self.open_sell(position, price[0])
         elif (action == 5 and self.position > 0):
             # self.stat['n_sell'] += 1
-            reward = self.settle_sell(price[0])
+            self.settle_sell(price[0])
         elif (action == 6 and self.position < 0):
             # self.stat['n_buy'] += 1
-            reward = self.settle_buy(price[1])
+            self.settle_buy(price[1])
 
         if self.total_balance < 250 and self.position != 0:
-            reward = self.settle_buy(price[1]) if self.position < 0 else self.settle_sell(price[0])
+            self.settle_buy(price[1]) if self.position < 0 else self.settle_sell(price[0])
         # elif (action == 7 and self.position > 0 and self.floating_pl < 0):
         #     # self.stat['n_sell'] += 1
         #     return self.settle_sell(price[0])
@@ -106,7 +106,7 @@ class Portfolio:
         #     # self.stat['n_buy'] += 1
         #     return self.settle_buy(price[1])
         # reward = self.update_stat(price)
-        self.update_stat(price)
+        reward = self.update_stat(price)
         self.stat['reward'] += reward
         # print('Reward for action[{}]: {}'.format(action, reward))
 
@@ -150,7 +150,12 @@ class Portfolio:
         #     pips = (self.order_price - price)
         pips = price - self.order_price
         profit_loss = pips * self.position
+        hurdle_return = 0.001 * abs(self.position)
+        # print('hurdle: {}'.format(hurdle_return))
+        log_return = log(self.balance + profit_loss - hurdle_return) - log(self.balance)
         self.balance += profit_loss
+
+        # print('profit_loss: {}'.format(profit_loss))
         # self.profit_loss += profit_loss
         # self.history.append({
         #     'open_price': self.order_price,
@@ -174,19 +179,24 @@ class Portfolio:
         # direction = 'Sell' if self.position > 0 else 'Buy'
         # print('Settle {} {}@{}, P/L: {}'.format(direction, self.position * -1, price, profit_loss))
 
-        self.hist_profit_loss.append(profit_loss)
+        self.hist_profit_loss.append(log_return)
+
         self.mean_return = np.mean(self.hist_profit_loss)
         self.std = np.std(self.hist_profit_loss)
-        self.sharpe_ratio = (self.mean_return - 0.0010 * abs(self.position)) / self.std if self.std > 0 else 0
-        diff_sharpe_ratio = self.sharpe_ratio - self.hist_sharpe_ratio
+        # self.sharpe_ratio = (self.mean_return - 0.0010 * abs(self.position))
+        self.sharpe_ratio = self.mean_return
+        self.sharpe_ratio = self.sharpe_ratio / self.std if self.std > 0.001 else self.sharpe_ratio / self.sharpe_ratio
+        # diff_sharpe_ratio = self.sharpe_ratio - self.hist_sharpe_ratio
 
+        # print('mean: {}, std: {}'.format(self.mean_return, self.std))
+        # print('diff_sharpe_ratio: {}, sharpe_ratio: {}'.format(diff_sharpe_ratio, self.sharpe_ratio))
         self.n_order = 0
         self.position = 0
         self.order_price = 0
         self.hist_sharpe_ratio = self.sharpe_ratio
         self.stat['sharpe_ratio'] = self.sharpe_ratio
         # return profit_loss
-        return diff_sharpe_ratio * 10000
+        return log_return
     # def book_order(self, position, price):
     #
     #     try:
@@ -217,6 +227,9 @@ class Portfolio:
         self.total_balance = self.balance + self.floating_pl
         episode_return = (self.total_balance - self.hist_balance) / self.hist_balance
 
+        hurdle_return = 0.001 * abs(self.position)
+        # print('hurdle: {}'.format(hurdle_return))
+        log_return = log(self.total_balance - hurdle_return) - log(self.hist_balance)
         # log_episode_return = log(self.total_balance/self.hist_balance)
 
         # if len(self.hist_profit_loss) > 500:
@@ -248,7 +261,7 @@ class Portfolio:
 
         self.counter += 1
         # self.hist_price = price
-        # self.hist_balance = self.total_balance
+        self.hist_balance = self.total_balance
         #
         # if (len(self.hist_sharpe_ratio) > 1):
         #     self.mean_sharpe_ratio = np.mean(self.hist_sharpe_ratio)
@@ -268,7 +281,7 @@ class Portfolio:
         #     print('reward is nan, setting its value to 0')
         #     reward = 0
         #
-        # return reward
+        return log_return
 
 if __name__ == '__main__':
 
