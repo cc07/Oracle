@@ -177,7 +177,7 @@ class Portfolio:
         self.hist_profit_loss.append(profit_loss)
         self.mean_return = np.mean(self.hist_profit_loss)
         self.std = np.std(self.hist_profit_loss)
-        self.sharpe_ratio = self.mean_return / self.std if self.std > 0 else 0
+        self.sharpe_ratio = (self.mean_return - 0.0010 * abs(self.position)) / self.std if self.std > 0 else 0
         diff_sharpe_ratio = self.sharpe_ratio - self.hist_sharpe_ratio
 
         self.n_order = 0

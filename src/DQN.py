@@ -85,7 +85,7 @@ class DeepQNetwork:
             self.summary_writer = tf.summary.FileWriter("log/", self.sess.graph)
 
     def _build_net(self):
-        def build_layers(s, c_names, n_l1, n_fc, w_initializer, b_initializer):
+        def build_layers(s, c_names, n_l1, n_fc, w_initializer, b_initializer, sample_size):
             # with tf.variable_scope('l1') as scope:
             #     w1 = tf.get_variable('w1', shape=[self.n_features, n_l1], initializer=w_initializer, collections=c_names)
             #     b1 = tf.get_variable('b1', shape=[1, n_l1], initializer=b_initializer, collections=c_names)
@@ -104,10 +104,10 @@ class DeepQNetwork:
             #     fc = tf.nn.relu(tf.matmul(l2, w3) + b3)
 
             with tf.variable_scope('conv1') as scope:
-                s = tf.reshape(s, [-1, self.n_features, 1])
+                s = tf.reshape(s, [sample_size, self.n_features, 1])
             #     k1 = tf.get_variable('kernel1', shape=[1, self.n_features, n_l1])
             #     conv1 = tf.nn.conv1d(s, k1, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-                conv1 = tf.layers.conv1d(s, 32, 8, strides=2, padding='SAME', activation=tf.nn.relu)
+                conv1 = tf.layers.conv1d(s, 32, 8, strides=4, padding='SAME', activation=tf.nn.relu)
             #
             with tf.variable_scope('conv2') as scope:
             #     # k2 = tf.get_variable('kernel2', shape=[1, n_l1, n_l1])
@@ -120,7 +120,7 @@ class DeepQNetwork:
                 conv3 = tf.layers.conv1d(conv2, 64, 3, strides=1, padding='SAME', activation=tf.nn.relu)
 
             with tf.variable_scope('rnn') as scope:
-                fc = tf.reshape(conv3, shape=[tf.shape(conv3)[0], 1, 64 * self.n_features / 4])
+                fc = tf.reshape(conv3, shape=[sample_size, 1, 64 * 69])
                 # cell = tf.nn.rnn_cell.LSTMCell(num_units=n_l1, initializer=tf.contrib.layers.xavier_initializer, activation=tf.nn.relu)
                 cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_fc, state_is_tuple=True, activation=tf.nn.relu)
                 state_in = cell.zero_state(tf.shape(fc)[0], tf.float32)
@@ -168,6 +168,7 @@ class DeepQNetwork:
 
         self.s = tf.placeholder(tf.float32, shape=(None, self.n_features), name='s')  # input
         self.q_target = tf.placeholder(tf.float32, shape=(None, self.n_actions), name='Q_target')  # for calculating loss
+        self.sample_size = tf.Variable(1, dtype=tf.int32, name='sample_size')
 
         with tf.variable_scope('eval_net'):
             # c_names, n_l1, w_initializer, b_initializer = \
@@ -177,7 +178,7 @@ class DeepQNetwork:
                 ['eval_net_params', tf.GraphKeys.GLOBAL_VARIABLES], self.l1_dim, self.fc_dim, \
                 tf.contrib.layers.xavier_initializer(), tf.random_normal_initializer()
 
-            self.q_eval = build_layers(self.s, c_names, n_l1, n_fc, w_initializer, b_initializer)
+            self.q_eval = build_layers(self.s, c_names, n_l1, n_fc, w_initializer, b_initializer, self.sample_size)
             # w1, w2, w3, self.q_eval = build_layers(self.s, c_names, n_l1, n_fc, w_initializer, b_initializer)
             # w1, self.q_eval = build_layers(self.s, c_names, n_l1, w_initializer, b_initializer)
 
@@ -202,7 +203,7 @@ class DeepQNetwork:
         with tf.variable_scope('target_net'):
             c_names = ['target_net_params', tf.GraphKeys.GLOBAL_VARIABLES]
 
-            self.q_next = build_layers(self.s_, c_names, n_l1, n_fc, w_initializer, b_initializer)
+            self.q_next = build_layers(self.s_, c_names, n_l1, n_fc, w_initializer, b_initializer, self.sample_size)
             # w1_target, w2_target, w3_target, self.q_next = build_layers(self.s_, c_names, n_l1, n_fc, w_initializer, b_initializer)
             # w1_target, self.q_next = build_layers(self.s_, c_names, n_l1, w_initializer, b_initializer)
 
@@ -268,7 +269,7 @@ class DeepQNetwork:
     def choose_action(self, observation):
         observation = observation[np.newaxis, :]
         if np.random.uniform() < self.epsilon:  # choosing action
-            action = self.sess.run(self.action, feed_dict={self.s: observation})
+            action = self.sess.run(self.action, feed_dict={self.s: observation, self.sample_size: 1})
             # actions_value = self.sess.run(self.q_eval, feed_dict={self.s: observation})
             # action = np.argmax(actions_value)
         else:
@@ -305,8 +306,9 @@ class DeepQNetwork:
         q_next, q_eval4next,  = self.sess.run(
             [self.q_next, self.q_eval],
             feed_dict={self.s_: batch_memory[:, -self.n_features:],    # next observation
-                       self.s: batch_memory[:, -self.n_features:]})    # next observation
-        q_eval = self.sess.run(self.q_eval, {self.s: batch_memory[:, :self.n_features]})
+                       self.s: batch_memory[:, -self.n_features:],
+                       self.sample_size: self.batch_size})    # next observation
+        q_eval = self.sess.run(self.q_eval, {self.s: batch_memory[:, :self.n_features], self.sample_size: self.batch_size})
 
         q_target = q_eval.copy()
 
@@ -320,14 +322,16 @@ class DeepQNetwork:
             _, abs_errors, self.cost = self.sess.run([self._train_op, self.abs_errors, self.loss],
                                          feed_dict={self.s: batch_memory[:, :self.n_features],
                                                     self.q_target: q_target,
-                                                    self.ISWeights: ISWeights})
+                                                    self.ISWeights: ISWeights,
+                                                    self.sample_size: self.batch_size})
             for i in range(len(tree_idx)):  # update priority
                 idx = tree_idx[i]
                 self.memory.update(idx, abs_errors[i])
         else:
             _, self.cost = self.sess.run([self._train_op, self.loss],
                                          feed_dict={self.s: batch_memory[:, :self.n_features],
-                                                    self.q_target: q_target})
+                                                    self.q_target: q_target,
+                                                    self.sample_size: self.batch_size})
 
         # if self.output_graph:
         #     self.summary_writer.add_summary(merged, self.learn_step_counter)
