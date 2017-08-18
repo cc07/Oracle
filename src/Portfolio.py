@@ -55,6 +55,7 @@ class Portfolio:
 
         self.stat['count'] += 1
         reward = 0
+        trade = False
 
         # if action != 0 and position != 0:
         #     self.stat['n_trades'] += 1
@@ -78,18 +79,22 @@ class Portfolio:
             self.stat['n_buy'] += 1
             self.stat['n_trades'] += 1
             self.open_buy(position, price[1])
+            trade = True
         if (action == 2 and self.position > 0):
             self.stat['n_buy'] += 1
             self.stat['n_trades'] += 1
             self.open_buy(position, price[1])
+            trade = True
         elif (action == 3 and self.position == 0):
             self.stat['n_sell'] += 1
             self.stat['n_trades'] += 1
             self.open_sell(position, price[0])
+            trade = True
         elif (action == 4 and self.position < 0):
             self.stat['n_sell'] += 1
             self.stat['n_trades'] += 1
             self.open_sell(position, price[0])
+            trade = True
         elif (action == 5 and self.position > 0):
             # self.stat['n_sell'] += 1
             reward = self.settle_sell(price[0])
@@ -106,7 +111,11 @@ class Portfolio:
         #     # self.stat['n_buy'] += 1
         #     return self.settle_buy(price[1])
         # reward = self.update_stat(price)
-        self.update_stat(price)
+        if trade:
+            reward = self.update_stat(price)
+        else:
+            self.update_stat(price)
+
         self.stat['reward'] += reward
         # print('Reward for action[{}]: {}'.format(action, reward))
 
