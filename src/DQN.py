@@ -120,7 +120,7 @@ class DeepQNetwork:
                 conv3 = tf.layers.conv1d(conv2, 64, 3, strides=1, padding='SAME', activation=tf.nn.relu)
 
             with tf.variable_scope('rnn') as scope:
-                fc = tf.reshape(conv3, shape=[sample_size, 1, 64 * 69])
+                fc = tf.reshape(conv3, shape=[sample_size, 1, 64 * 27])
                 # cell = tf.nn.rnn_cell.LSTMCell(num_units=n_l1, initializer=tf.contrib.layers.xavier_initializer, activation=tf.nn.relu)
                 cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_fc, state_is_tuple=True, activation=tf.nn.relu)
                 state_in = cell.zero_state(tf.shape(fc)[0], tf.float32)

@@ -92,13 +92,13 @@ class Portfolio:
             self.open_sell(position, price[0])
         elif (action == 5 and self.position > 0):
             # self.stat['n_sell'] += 1
-            self.settle_sell(price[0])
+            reward = self.settle_sell(price[0])
         elif (action == 6 and self.position < 0):
             # self.stat['n_buy'] += 1
-            self.settle_buy(price[1])
+            reward = self.settle_buy(price[1])
 
-        if self.total_balance < 250 and self.position != 0:
-            self.settle_buy(price[1]) if self.position < 0 else self.settle_sell(price[0])
+        # if self.total_balance < 250 and self.position != 0:
+        #     self.settle_buy(price[1]) if self.position < 0 else self.settle_sell(price[0])
         # elif (action == 7 and self.position > 0 and self.floating_pl < 0):
         #     # self.stat['n_sell'] += 1
         #     return self.settle_sell(price[0])
@@ -106,7 +106,7 @@ class Portfolio:
         #     # self.stat['n_buy'] += 1
         #     return self.settle_buy(price[1])
         # reward = self.update_stat(price)
-        reward = self.update_stat(price)
+        self.update_stat(price)
         self.stat['reward'] += reward
         # print('Reward for action[{}]: {}'.format(action, reward))
 

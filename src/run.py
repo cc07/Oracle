@@ -67,17 +67,19 @@ from Portfolio import Portfolio
 def run(load_sess=False, output_graph=True):
 
     print ('Loading csv data')
-    train = pd.read_csv('./data/quote_M15.csv')
+    # train = pd.read_csv('./data/quote_M15.csv')
+    X_train = pd.read_csv('./data/quote.csv')
     print ('Loading finished')
 
     # X_train = train[1:100001]
-    X_train = train[1:40000]
+    # X_train = train[1:40000]
     # X_train = X_train.drop(['Timestamp', 'Date', 'Time'], axis=1)
     n_actions = 7
     n_features = X_train.shape[1]
+
     MEMORY_SIZE = 100000
     # e_greedy_increment = 0.000001
-    e_greedy_increment = 0.00002
+    e_greedy_increment = 0.00001
     reward_decay = 0.95
     learning_rate = 0.00005
     replace_target_iter = 10000
