@@ -57,60 +57,41 @@ class Portfolio:
         reward = 0
         trade = False
 
-        # if action != 0 and position != 0:
-        #     self.stat['n_trades'] += 1
-
-        # if (action == 1 and self.position >= 0):
-        #     self.stat['n_buy'] += 1
-        #     self.stat['n_trades'] += 1
-        #     self.open_buy(position, price[1])
-        # elif (action == 3 and self.position < 0):
-        #     # self.stat['n_buy'] += 1
-        #     return self.settle_buy(price[1])
-        # elif (action == 2 and self.position <= 0):
-        #     self.stat['n_sell'] += 1
-        #     self.stat['n_trades'] += 1
-        #     self.open_sell(position, price[0])
-        # elif (action == 3 and self.position > 0):
-        #     # self.stat['n_sell'] += 1
-        #     return self.settle_sell(price[0])
-
         if (action == 1 and self.position == 0):
             self.stat['n_buy'] += 1
             self.stat['n_trades'] += 1
             self.open_buy(position, price[1])
             trade = True
-        if (action == 2 and self.position > 0):
-            self.stat['n_buy'] += 1
-            self.stat['n_trades'] += 1
-            self.open_buy(position, price[1])
-            trade = True
-        elif (action == 3 and self.position == 0):
-            self.stat['n_sell'] += 1
-            self.stat['n_trades'] += 1
-            self.open_sell(position, price[0])
-            trade = True
-        elif (action == 4 and self.position < 0):
-            self.stat['n_sell'] += 1
-            self.stat['n_trades'] += 1
-            self.open_sell(position, price[0])
-            trade = True
-        elif (action == 5 and self.position > 0):
-            # self.stat['n_sell'] += 1
+        elif (action == 2 and self.position > 0):
             reward = self.settle_sell(price[0])
-        elif (action == 6 and self.position < 0):
-            # self.stat['n_buy'] += 1
-            reward = self.settle_buy(price[1])
-
-        # if self.total_balance < 250 and self.position != 0:
-        #     self.settle_buy(price[1]) if self.position < 0 else self.settle_sell(price[0])
-        # elif (action == 7 and self.position > 0 and self.floating_pl < 0):
+            
+        # if (action == 1 and self.position == 0):
+        #     self.stat['n_buy'] += 1
+        #     self.stat['n_trades'] += 1
+        #     self.open_buy(position, price[1])
+        #     trade = True
+        # elif (action == 2 and self.position > 0):
+        #     self.stat['n_buy'] += 1
+        #     self.stat['n_trades'] += 1
+        #     self.open_buy(position, price[1])
+        #     trade = True
+        # elif (action == 3 and self.position == 0):
+        #     self.stat['n_sell'] += 1
+        #     self.stat['n_trades'] += 1
+        #     self.open_sell(position, price[0])
+        #     trade = True
+        # elif (action == 4 and self.position < 0):
+        #     self.stat['n_sell'] += 1
+        #     self.stat['n_trades'] += 1
+        #     self.open_sell(position, price[0])
+        #     trade = True
+        # elif (action == 5 and self.position > 0):
         #     # self.stat['n_sell'] += 1
-        #     return self.settle_sell(price[0])
-        # elif (action == 7 and self.position < 0 and self.floating_pl < 0):
+        #     reward = self.settle_sell(price[0])
+        # elif (action == 6 and self.position < 0):
         #     # self.stat['n_buy'] += 1
-        #     return self.settle_buy(price[1])
-        # reward = self.update_stat(price)
+        #     reward = self.settle_buy(price[1])
+
         if trade:
             reward = self.update_stat(price)
         else:

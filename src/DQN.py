@@ -22,6 +22,7 @@ class DeepQNetwork:
             self,
             n_actions,
             n_features,
+            n_channels,
             learning_rate=0.0001,
             reward_decay=0.9,
             e_greedy=0.9,
@@ -38,6 +39,7 @@ class DeepQNetwork:
 
         self.n_actions = n_actions
         self.n_features = n_features
+        self.n_channels = n_channels
         self.lr = learning_rate
         self.op_decay = 0.9
         self.gamma = reward_decay
@@ -86,47 +88,53 @@ class DeepQNetwork:
 
     def _build_net(self):
         def build_layers(s, c_names, n_l1, n_fc, w_initializer, b_initializer, sample_size):
-            # with tf.variable_scope('l1') as scope:
-            #     w1 = tf.get_variable('w1', shape=[self.n_features, n_l1], initializer=w_initializer, collections=c_names)
-            #     b1 = tf.get_variable('b1', shape=[1, n_l1], initializer=b_initializer, collections=c_names)
-            #     l1 = tf.nn.relu(tf.matmul(s, w1) + b1)
-            #     # l1 = tf.nn.dropout(l1, self.keep_prob_l1)
+
+            with tf.variable_scope('conv1') as scope:
+                # s = tf.reshape(s, [sample_size, self.n_features, self.n_channels])
+                # k1 = tf.get_variable('kernel1', shape=[1, self.n_channels, self.n_features])
+            #     conv1 = tf.nn.conv1d(s, k1, stride=2, padding='SAME', use_cudnn_on_gpu=True)
+                conv1 = tf.layers.conv1d(s, 32, 8, strides=1, padding='SAME', activation=tf.nn.relu)
+                conv1 = tf.layers.max_pooling1d(conv1, 2, 4, padding='SAME')
             #
-            # with tf.variable_scope('l2') as scope:
-            #     w2 = tf.get_variable('w2', shape=[n_l1, n_l1], initializer=w_initializer, collections=c_names)
-            #     b2 = tf.get_variable('b2', shape=[1, n_l1], initializer=b_initializer, collections=c_names)
-            #     l2 = tf.nn.relu(tf.matmul(l1, w2) + b2)
-            #     # fc = tf.nn.dropout(l2, self.keep_prob_l1)
+            with tf.variable_scope('conv2') as scope:
+            #     # k2 = tf.get_variable('kernel2', shape=[1, n_l1, n_l1])
+            #     # conv2 = tf.nn.conv1d(conv1, k2, stride=2, padding='SAME', use_cudnn_on_gpu=True)
+                conv2 = tf.layers.conv1d(conv1, 64, 4, strides=1, padding='SAME', activation=tf.nn.relu)
+                conv2 = tf.layers.max_pooling1d(conv2, 2, 2, padding='SAME')
+            #
+            with tf.variable_scope('conv3') as scope:
+            # #     k3 = tf.get_variable('kernel3', shape=[1, n_l1, n_fc])
+            # #     fc = tf.nn.conv1d(conv2, k3, stride=2, padding='SAME', use_cudnn_on_gpu=True)
+                conv3 = tf.layers.conv1d(conv2, 64, 3, strides=1, padding='SAME', activation=tf.nn.relu)
+                conv3 = tf.layers.max_pooling1d(conv2, 2, 1, padding='SAME')
+
+            with tf.variable_scope('l1') as scope:
+                fc = tf.reshape(conv3, shape=[sample_size, 64 * 2])
+                # w1 = tf.get_variable('w1', shape=[self.n_features, n_l1], initializer=w_initializer, collections=c_names)
+                w1 = tf.get_variable('w1', shape=[64 * 2, n_l1], initializer=w_initializer, collections=c_names)
+                b1 = tf.get_variable('b1', shape=[1, n_l1], initializer=b_initializer, collections=c_names)
+                l1 = tf.nn.relu(tf.matmul(fc, w1) + b1)
+                # l1 = tf.nn.dropout(l1, self.keep_prob_l1)
+
+            with tf.variable_scope('l2') as scope:
+                w2 = tf.get_variable('w2', shape=[n_l1, n_fc], initializer=w_initializer, collections=c_names)
+                b2 = tf.get_variable('b2', shape=[1, n_fc], initializer=b_initializer, collections=c_names)
+                fc = tf.nn.relu(tf.matmul(l1, w2) + b2)
+                # fc = tf.nn.dropout(l2, self.keep_prob_l1)
             #
             # with tf.variable_scope('l3') as scope:
             #     w3 = tf.get_variable('w3', shape=[n_l1, n_fc], initializer=w_initializer, collections=c_names)
             #     b3 = tf.get_variable('b3', shape=[1, n_fc], initializer=b_initializer, collections=c_names)
             #     fc = tf.nn.relu(tf.matmul(l2, w3) + b3)
 
-            with tf.variable_scope('conv1') as scope:
-                s = tf.reshape(s, [sample_size, self.n_features, 1])
-            #     k1 = tf.get_variable('kernel1', shape=[1, self.n_features, n_l1])
-            #     conv1 = tf.nn.conv1d(s, k1, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-                conv1 = tf.layers.conv1d(s, 32, 8, strides=4, padding='SAME', activation=tf.nn.relu)
-            #
-            with tf.variable_scope('conv2') as scope:
-            #     # k2 = tf.get_variable('kernel2', shape=[1, n_l1, n_l1])
-            #     # conv2 = tf.nn.conv1d(conv1, k2, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-                conv2 = tf.layers.conv1d(conv1, 64, 4, strides=2, padding='SAME', activation=tf.nn.relu)
-            #
-            with tf.variable_scope('conv3') as scope:
-            # #     k3 = tf.get_variable('kernel3', shape=[1, n_l1, n_fc])
-            # #     fc = tf.nn.conv1d(conv2, k3, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-                conv3 = tf.layers.conv1d(conv2, 64, 3, strides=1, padding='SAME', activation=tf.nn.relu)
-
-            with tf.variable_scope('rnn') as scope:
-                fc = tf.reshape(conv3, shape=[sample_size, 1, 64 * 27])
-                # cell = tf.nn.rnn_cell.LSTMCell(num_units=n_l1, initializer=tf.contrib.layers.xavier_initializer, activation=tf.nn.relu)
-                cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_fc, state_is_tuple=True, activation=tf.nn.relu)
-                state_in = cell.zero_state(tf.shape(fc)[0], tf.float32)
-                # cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=0.8)
-                rnn, state = tf.nn.dynamic_rnn(inputs=fc, cell=cell, dtype=tf.float32, initial_state=state_in)
-                fc = tf.reshape(rnn, shape=[-1, n_fc])
+            # with tf.variable_scope('rnn') as scope:
+            #     fc = tf.reshape(conv3, shape=[sample_size, 1, 64 * 27])
+            #     # cell = tf.nn.rnn_cell.LSTMCell(num_units=n_l1, initializer=tf.contrib.layers.xavier_initializer, activation=tf.nn.relu)
+            #     cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_fc, state_is_tuple=True, activation=tf.nn.relu)
+            #     state_in = cell.zero_state(tf.shape(fc)[0], tf.float32)
+            #     # cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=0.8)
+            #     rnn, state = tf.nn.dynamic_rnn(inputs=fc, cell=cell, dtype=tf.float32, initial_state=state_in)
+            #     fc = tf.reshape(rnn, shape=[-1, n_fc])
                 # fc = rnn[-1]
 
             # with tf.variable_scope('fc') as scope:
@@ -153,7 +161,7 @@ class DeepQNetwork:
                     out = self.V + (self.A - tf.reduce_mean(self.A, axis=1, keep_dims=True))     # Q = V(s) + A(s,a)
             else:
                 with tf.variable_scope('Q'):
-                    w_out = tf.get_variable('w_out', [n_l1, self.n_actions], initializer=w_initializer, collections=c_names)
+                    w_out = tf.get_variable('w_out', [n_fc, self.n_actions], initializer=w_initializer, collections=c_names)
                     b_out = tf.get_variable('b_out', [1, self.n_actions], initializer=b_initializer, collections=c_names)
                     out = tf.matmul(fc, w_out) + b_out
                     # out = tf.nn.bias_add(tf.matmul(l1, w2), b2)
@@ -166,7 +174,7 @@ class DeepQNetwork:
         if self.prioritized:
             self.ISWeights = tf.placeholder(tf.float32, [None, 1], name='IS_weights')
 
-        self.s = tf.placeholder(tf.float32, shape=(None, self.n_features), name='s')  # input
+        self.s = tf.placeholder(tf.float32, shape=(None, self.n_features, self.n_channels), name='s')  # input
         self.q_target = tf.placeholder(tf.float32, shape=(None, self.n_actions), name='Q_target')  # for calculating loss
         self.sample_size = tf.Variable(1, dtype=tf.int32, name='sample_size')
 
@@ -199,7 +207,7 @@ class DeepQNetwork:
             self._train_op = tf.train.RMSPropOptimizer(learning_rate=self.lr, decay=self.op_decay).minimize(self.loss)
 
         # ------------------ build target_net ------------------
-        self.s_ = tf.placeholder(tf.float32, [None, self.n_features], name='s_')    # input
+        self.s_ = tf.placeholder(tf.float32, [None, self.n_features, self.n_channels], name='s_')    # input
         with tf.variable_scope('target_net'):
             c_names = ['target_net_params', tf.GraphKeys.GLOBAL_VARIABLES]
 
@@ -254,7 +262,8 @@ class DeepQNetwork:
             print ('Error observation shapes are not the same, s: {}, s_: {}'.format(s.shape, s_.shape))
             sys.exit(2)
 
-        transition = np.hstack((s, [a, r], s_))
+        # transition = np.hstack((list(s.flat), [a, r], list(s_.flat)))
+        transition = {'s': s, 'a': a, 'r': r, 's_': s_}
 
         if self.prioritized:    # prioritized replay
             self.memory.store(transition)    # have high priority for newly arrived transition
@@ -302,25 +311,45 @@ class DeepQNetwork:
             #     batch_memory.append(self.memory[index: index + self.trace_length, :])
             # print(batch_memory.shape)
             # sys.exit(2)
+        # pointer = int(self.n_features * self.n_channels)
+
+        length = len(batch_memory)
+        s = np.array([batch_memory[i][0]['s'] for i in range(length)])
+        # s = batch_memory[:, :pointer]
+        # s = np.reshape(s, (-1, self.n_channels, self.n_features))
+        # print('s.shape: {}'.format(s.shape))
+
+        s_ = np.array([batch_memory[i][0]['s_'] for i in range(length)])
+        # s_ = batch_memory[:, -pointer:]
+        # s_ = np.reshape(s_, (-1, self.n_channels, self.n_features))
+        # print('s_.shape: {}'.format(s_.shape))
 
         q_next, q_eval4next,  = self.sess.run(
             [self.q_next, self.q_eval],
-            feed_dict={self.s_: batch_memory[:, -self.n_features:],    # next observation
-                       self.s: batch_memory[:, -self.n_features:],
-                       self.sample_size: self.batch_size})    # next observation
-        q_eval = self.sess.run(self.q_eval, {self.s: batch_memory[:, :self.n_features], self.sample_size: self.batch_size})
+            feed_dict={self.s_: s_, self.s: s_, self.sample_size: self.batch_size})    # next observation
+            # feed_dict={self.s_: batch_memory[:, -self.n_features:],    # next observation
+            #            self.s: batch_memory[:, -self.n_features:],
+            #            self.sample_size: self.batch_size})    # next observation
+        q_eval = self.sess.run(self.q_eval, {self.s: s, self.sample_size: self.batch_size})
+        # q_eval = self.sess.run(self.q_eval, {self.s: batch_memory[:, :self.n_features], self.sample_size: self.batch_size})
 
         q_target = q_eval.copy()
 
         batch_index = np.arange(self.batch_size, dtype=np.int32)
-        eval_act_index = batch_memory[:, self.n_features].astype(int)
-        reward = batch_memory[:, self.n_features + 1]
+        eval_act_index = np.array([batch_memory[i][0]['a'] for i in range(length)], dtype=np.int32)
+        # eval_act_index = batch_memory[:, pointer].astype(int)
+        # eval_act_index = batch_memory[:, self.n_features].astype(int)
+        reward = np.array([batch_memory[i][0]['r'] for i in range(length)])
+        # reward = batch_memory[:, pointer + 1]
+        # reward = batch_memory[:, self.n_features + 1]
 
         q_target[batch_index, eval_act_index] = reward + self.gamma * np.max(q_next, axis=1)
 
         if self.prioritized:
             _, abs_errors, self.cost = self.sess.run([self._train_op, self.abs_errors, self.loss],
-                                         feed_dict={self.s: batch_memory[:, :self.n_features],
+                                        feed_dict={self.s: s,
+                                        # feed_dict={self.s: batch_memory[:, :pointer],
+                                        #  feed_dict={self.s: batch_memory[:, :self.n_features],
                                                     self.q_target: q_target,
                                                     self.ISWeights: ISWeights,
                                                     self.sample_size: self.batch_size})

@@ -7,6 +7,7 @@ import math
 import pandas as pd
 import tensorflow as tf
 import numpy as np
+import cPickle as pickle
 
 from DQN import DeepQNetwork
 from Portfolio import Portfolio
@@ -68,19 +69,35 @@ def run(load_sess=False, output_graph=True):
 
     print ('Loading csv data')
     # train = pd.read_csv('./data/quote_M15.csv')
-    X_train = pd.read_csv('./data/quote.csv')
+    price_train = pd.read_csv('./data/quote.csv', header=None)
+    # featureM1 = pd.read_csv('./data/quoteM1.csv')
+    # featureM5 = pd.read_csv('./data/quoteM5.csv')
+    # featureM15 = pd.read_csv('./data/quoteM15.csv')
+    # featureH1 = pd.read_csv('./data/quoteH1.csv')
+
+    # data = [None] * len(featureM1)
+    # for i in range(len(featureM1)):
+    #     data[i] = np.array([
+    #                 featureM1.loc[i].as_matrix(),
+    #                 featureM5.loc[i].as_matrix(),
+    #                 featureM15.loc[i].as_matrix(),
+    #                 featureH1.loc[i].as_matrix()], np.float64)
+
+    X_train = pickle.load(file('./data/data.pkl', 'rb'))
+    price_train = price_train.as_matrix()
     print ('Loading finished')
 
     # X_train = train[1:100001]
     # X_train = train[1:40000]
     # X_train = X_train.drop(['Timestamp', 'Date', 'Time'], axis=1)
-    n_actions = 7
+    n_actions = 3
     n_features = X_train.shape[1]
+    n_channels = X_train.shape[2]
 
     MEMORY_SIZE = 100000
     # e_greedy_increment = 0.000001
     e_greedy_increment = 0.00001
-    reward_decay = 0.95
+    reward_decay = 0.9
     learning_rate = 0.00005
     replace_target_iter = 10000
     dueling = True
@@ -101,7 +118,7 @@ def run(load_sess=False, output_graph=True):
 
     save_interval = 10000
 
-    oracle = DeepQNetwork(n_actions=n_actions, n_features=n_features, memory_size=MEMORY_SIZE,
+    oracle = DeepQNetwork(n_actions=n_actions, n_features=n_features, n_channels=n_channels, memory_size=MEMORY_SIZE,
         reward_decay=reward_decay, learning_rate=learning_rate, replace_target_iter=replace_target_iter,
         e_greedy_increment=e_greedy_increment, dueling=dueling, output_graph=output_graph, prioritized=prioritized)
 
@@ -111,6 +128,10 @@ def run(load_sess=False, output_graph=True):
     saver = tf.train.Saver()
     last_save_step = 0
 
+    total_batch = int(X_train.shape[0] / batch_size)
+    X_batches = np.array_split(X_train, total_batch)
+    price_batches = np.array_split(price_train, total_batch)
+
     for epoch in range(epoches):
 
         print('Epoch: {}'.format(epoch))
@@ -118,41 +139,52 @@ def run(load_sess=False, output_graph=True):
         goldkeeper = Portfolio(initial_balance, 0, 0, 0)
         action = None
 
-        total_batch = int(X_train.shape[0] / batch_size)
-        X_batches = np.array_split(X_train.values, total_batch)
-
         for b in range(total_batch):
 
             if goldkeeper.balance < 200:
                 print('Balance less than 200, starting another epoch')
                 break;
 
-            dataset = X_batches[b]
-            price = dataset[0][0:2]
-            observation = dataset[0][2:]
+            # dataset = X_batches[b]
+            # price = dataset[0][0:2]
+            # observation = dataset[0][2:]
+            observation = X_batches[b][0]
+            price = price_batches[b][0]
 
-            if goldkeeper.position == 0:
-                holding_status = 0
-            elif goldkeeper.position > 0:
-                holding_status = 1
-            elif goldkeeper.position < 0:
-                holding_status = 2
+            # print('price: {}/{}'.format(price[0], price[1]))
+            # if goldkeeper.position == 0:
+            #     holding_status = 0
+            # elif goldkeeper.position > 0:
+            #     holding_status = 1
+            # elif goldkeeper.position < 0:
+            #     holding_status = 2
+            #
+            # observation = np.hstack((observation, holding_status))
+            #
+            # holding_capacity = abs(goldkeeper.position) / (goldkeeper.total_balance / capacity_factor)
+            # observation = np.hstack((observation, holding_capacity))
 
-            observation = np.hstack((observation, holding_status))
+            # print ('total_batch: {}, len(X_train): {}'.format(total_batch, len(X_train)))
+            # print ('len(X_batches[b]): {}'.format(len(X_batches[b])))
 
-            holding_capacity = abs(goldkeeper.position) / (goldkeeper.total_balance / capacity_factor)
-            observation = np.hstack((observation, holding_capacity))
+            for i in range(len(X_batches[b])):
 
-            for i in range(len(dataset)):
+                # print('price: {}/{}'.format(price[0], price[1]))
+                # print('observation: {}'.format(observation))
 
-                if goldkeeper.balance < 200 or (i == len(dataset) and b == total_batch):
+                # if (i == 5):
+                #     sys.exit(2)
+
+                if goldkeeper.balance < 200 or (i == len(X_batches[b]) and b == total_batch):
                     break;
 
                 action = oracle.choose_action(observation)
                 direction = 1
 
-                if action == 3 or action == 4 or action == 5:
+                if action == 2:
                     direction = -1
+                # if action == 3 or action == 4 or action == 5:
+                #     direction = -1
 
                 leverage_factor = goldkeeper.total_balance / initial_balance
                 position = int(max(0, min(position_base * leverage_factor, (goldkeeper.total_balance / capacity_factor) - abs(goldkeeper.position)))) * direction
@@ -160,25 +192,27 @@ def run(load_sess=False, output_graph=True):
                 reward = goldkeeper.get_reward(price, action, position)
 
                 try:
-                    price = dataset[i+1][:2] if (i < len(dataset) - 1) else X_batches[b+1][0][:2]
-                    observation_ = dataset[i+1][2:] if (i < len(dataset) - 1) else X_batches[b+1][0][2:]
+                    price = price_batches[b][i+1] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0]
+                    observation_ = X_batches[b][i+1] if (i < len(X_batches[b]) - 1) else X_batches[b+1][0]
+                    # price = dataset[i+1][:2] if (i < len(dataset) - 1) else X_batches[b+1][0][:2]
+                    # observation_ = dataset[i+1][2:] if (i < len(dataset) - 1) else X_batches[b+1][0][2:]
 
-                    if goldkeeper.position == 0:
-                        holding_status = 0
-                    elif goldkeeper.position > 0:
-                        holding_status = 1
-                    elif goldkeeper.position < 0:
-                        holding_status = 2
-
-                    observation_ = np.hstack((observation_, holding_status))
-
-                    holding_capacity = abs(goldkeeper.position) / (goldkeeper.total_balance / capacity_factor)
-                    observation_ = np.hstack((observation_, holding_capacity))
+                    # if goldkeeper.position == 0:
+                    #     holding_status = 0
+                    # elif goldkeeper.position > 0:
+                    #     holding_status = 1
+                    # elif goldkeeper.position < 0:
+                    #     holding_status = 2
+                    #
+                    # observation_ = np.hstack((observation_, holding_status))
+                    #
+                    # holding_capacity = abs(goldkeeper.position) / (goldkeeper.total_balance / capacity_factor)
+                    # observation_ = np.hstack((observation_, holding_capacity))
 
                     oracle.store_transition(observation, action, reward, observation_)
                 except Exception as e:
                     print(str(e))
-                    print('Error b: {}, max_b: {}, i: {}, length: {}'.format(b, total_batch, i, len(dataset)))
+                    print('Error b: {}, max_b: {}, i: {}, length: {}, step: {}'.format(b, total_batch, i, len(X_train), step))
                     break
 
                 observation = observation_
