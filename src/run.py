@@ -96,9 +96,9 @@ def run(load_sess=False, output_graph=True):
 
     MEMORY_SIZE = 100000
     # e_greedy_increment = 0.000001
-    e_greedy_increment = 0.00001
+    e_greedy_increment = 0.0001
     reward_decay = 0.9
-    learning_rate = 0.00005
+    learning_rate = 0.0005
     replace_target_iter = 10000
     dueling = True
     prioritized = True

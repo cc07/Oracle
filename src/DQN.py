@@ -366,7 +366,8 @@ class DeepQNetwork:
         #     self.summary_writer.add_summary(merged, self.learn_step_counter)
         # self.cost_his.append(self.cost)
 
-        self.epsilon = self.epsilon + self.epsilon_increment if self.epsilon < self.epsilon_max else self.epsilon_max
+        # self.epsilon = self.epsilon + self.epsilon_increment if self.epsilon < self.epsilon_max else self.epsilon_max
+        self.epsilon = self.epsilon + np.exp(-self.epsilon_increment * self.learn_step_counter) if self.epsilon < self.epsilon_max else self.epsilon_max
         self.learn_step_counter += 1
 
         self.totalLoss += self.cost
