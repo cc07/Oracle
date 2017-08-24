@@ -41,7 +41,7 @@ def run(load_sess=False, output_graph=True):
     n_features = X_train.shape[1]
     n_channels = X_train.shape[2]
 
-    MEMORY_SIZE = 50000
+    MEMORY_SIZE = 500000
     e_greedy_increment = 0.0001
     reward_decay = 0.995
     learning_rate = 0.00001
@@ -129,11 +129,11 @@ def run(load_sess=False, output_graph=True):
                 leverage_factor = goldkeeper.total_balance / initial_balance
                 position = int(max(0, min(position_base * leverage_factor, (goldkeeper.total_balance / capacity_factor) - abs(goldkeeper.position))))
 
-                reward = goldkeeper.get_reward(price, action, position)
-
                 try:
-                    price = price_batches[b][i+1] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0]
+                    price_ = price_batches[b][i+1] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0]
                     observation_ = X_batches[b][i+1] if (i < len(X_batches[b]) - 1) else X_batches[b+1][0]
+
+                    reward = goldkeeper.get_reward(price, action, position, price_)
                     # price = dataset[i+1][:2] if (i < len(dataset) - 1) else X_batches[b+1][0][:2]
                     # observation_ = dataset[i+1][2:] if (i < len(dataset) - 1) else X_batches[b+1][0][2:]
 
@@ -156,8 +156,9 @@ def run(load_sess=False, output_graph=True):
                     break
 
                 observation = observation_
+                price = price_
 
-                if step > MEMORY_SIZE * 0.1 and step % learn_interval == 0:
+                if step > MEMORY_SIZE and step % learn_interval == 0:
                     oracle.learn()
 
                 if i % display_interval == 0:

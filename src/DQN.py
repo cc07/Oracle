@@ -254,6 +254,7 @@ class DeepQNetwork:
             # boltzmann
             self.temp = tf.placeholder(shape=None, dtype=tf.float32)
             self.q_dist = tf.nn.softmax(self.q_eval/self.temp)
+            self.action = tf.squeeze(tf.multinomial(tf.log(self.q_dist), 1))
 
             # e-greedy
             # self.action = tf.argmax(self.q_eval, axis=1)
@@ -288,9 +289,9 @@ class DeepQNetwork:
         observation = observation[np.newaxis, :]
 
         # boltzmann
-        q_dist = self.sess.run(self.q_dist, feed_dict={self.s: observation, self.sample_size: 1, self.temp: 1 - self.epsilon})
-        action = np.random.choice(q_dist[0], p=q_dist[0])
-        action = np.argmax(q_dist[0] == action)
+        action = self.sess.run(self.action, feed_dict={self.s: observation, self.sample_size: 1, self.temp: 1 - self.epsilon})
+        # action = np.random.choice(q_dist[0], p=q_dist[0])
+        # action = np.argmax(q_dist[0] == action)
 
         # e-greedy
         # if np.random.uniform() < self.epsilon:  # choosing action

@@ -52,7 +52,7 @@ class Portfolio:
 
         print ('Initial balance: {}, Position: {}, Order Price: {}'.format(self.balance, self.position, self.order_price))
 
-    def get_reward(self, price, action, position):
+    def get_reward(self, price, action, position, price_):
 
         # print('action: {}, price_prev: {}, price: {}, self.positon: {}'.format(action, price_prev, price, self.position))
 
@@ -90,7 +90,7 @@ class Portfolio:
             # self.stat['n_buy'] += 1
             reward = self.settle_buy(price[1])
 
-        self.update_stat(price)
+        reward = self.update_stat(price_)
 
         self.stat['reward'] += reward
         # print('Reward for action[{}]: {}'.format(action, reward))
@@ -182,16 +182,18 @@ class Portfolio:
         self.stat['sharpe_ratio'] = self.sharpe_ratio
         # return profit_loss
 
-        decay = 0.9
-        diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
-        diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
-        diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
+        # decay = 0.9
+        # diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
+        # diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
+        # diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
+        #
+        # self.hist_diff_sharpe_top = diff_sharpe_top
+        # self.hist_diff_sharpe_bottom = diff_sharpe_bottom
+        # self.stat['diff_sharpe'] = diff_sharpe
+        #
+        # return diff_sharpe
+        return log_return
 
-        self.hist_diff_sharpe_top = diff_sharpe_top
-        self.hist_diff_sharpe_bottom = diff_sharpe_bottom
-        self.stat['diff_sharpe'] = diff_sharpe
-
-        return diff_sharpe
     # def book_order(self, position, price):
     #
     #     try:
@@ -226,14 +228,14 @@ class Portfolio:
         # print('hurdle: {}'.format(hurdle_return))
         log_return = log(self.total_balance - hurdle_return) - log(self.hist_balance)
 
-        # decay = 0.9
-        # diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
-        # diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
-        # diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
-        #
-        # self.hist_diff_sharpe_top = diff_sharpe_top
-        # self.hist_diff_sharpe_bottom = diff_sharpe_bottom
-        # self.stat['diff_sharpe'] = diff_sharpe
+        decay = 0.9
+        diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
+        diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
+        diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
+
+        self.hist_diff_sharpe_top = diff_sharpe_top
+        self.hist_diff_sharpe_bottom = diff_sharpe_bottom
+        self.stat['diff_sharpe'] = diff_sharpe
 
         # if len(self.hist_profit_loss) > 500:
         #     self.hist_profit_loss.rotate(np.random.randint(0, len(self.hist_profit_loss)))
@@ -284,7 +286,7 @@ class Portfolio:
         #     print('reward is nan, setting its value to 0')
         #     reward = 0
         #
-        # return diff_sharpe
+        return diff_sharpe
 
 if __name__ == '__main__':
 
