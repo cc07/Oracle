@@ -7,63 +7,10 @@ import math
 import pandas as pd
 import tensorflow as tf
 import numpy as np
-import cPickle as pickle
+import pickle
 
 from DQN import DeepQNetwork
 from Portfolio import Portfolio
-
-# class HTTPServer_RequestHandler(BaseHTTPRequestHandler):
-#
-#     oracle = None
-#
-#     # def __init__(self, *args):
-#         # tf.reset_default_graph()
-#
-#     def do_GET(self):
-#
-#         self.send_response(200)
-#         self.send_header('Content-type','text/html')
-#         self.end_headers()
-#
-#         # self.wfile.write(bytes(self.path, 'utf8'))
-#         msg = '{}'.format(self.oracle.test())
-#         self.wfile.write(bytes(msg, 'utf8'))
-#         # message = "Hello world!"
-#         # self.wfile.write(bytes(message, "utf8"))
-#         return
-
-# def getReward(price, price_prev, action, balance, position):
-#
-#     size = min(10000, balance/0.1)
-#     reward = 0
-#     #     balance = account['balance']
-#     #     position = account['position']
-#     #     print ('price: {}, price_next: {}, position: {}'.format(price, price_next, position))
-#
-#     if action == 1:
-#         if (position >= 0):
-#             #             print ('Open Buy {}@{}'.format(size, price))
-#             position += size
-#         elif (position < 0):
-#             #             print ('Settle Buy {}@{}, Balance: {}'.format(size, position, balance + reward))
-#             position = 0
-#     elif action == 2:
-#         if (position <= 0):
-#             #             print ('Open Sell {}@{}'.format(size, price))
-#             position += size * -1
-#         elif (position > 0):
-#             #             print ('Settle Sell {}@{}, Balance: {}'.format(size, position, balance + reward))
-#             position = 0
-#
-#     if (position != 0 and price_prev > 0):
-#         reward = (price - price_prev) * position
-#     else:
-#         reward = 0
-#
-#     balance = balance + reward
-#
-#     #     return reward, balance, position
-#     return reward, {'balance': balance, 'position': position}
 
 def run(load_sess=False, output_graph=True):
 
@@ -83,30 +30,29 @@ def run(load_sess=False, output_graph=True):
     #                 featureM15.loc[i].as_matrix(),
     #                 featureH1.loc[i].as_matrix()], np.float64)
 
-    X_train = pickle.load(file('./data/data.pkl', 'rb'))
+    X_train = pickle.load(open('./data/data.pkl', 'rb'))
     price_train = price_train.as_matrix()
     print ('Loading finished')
 
     # X_train = train[1:100001]
     # X_train = train[1:40000]
     # X_train = X_train.drop(['Timestamp', 'Date', 'Time'], axis=1)
-    n_actions = 3
+    n_actions = 7
     n_features = X_train.shape[1]
     n_channels = X_train.shape[2]
 
-    MEMORY_SIZE = 100000
-    # e_greedy_increment = 0.000001
+    MEMORY_SIZE = 50000
     e_greedy_increment = 0.0001
-    reward_decay = 0.9
-    learning_rate = 0.0005
-    replace_target_iter = 10000
+    reward_decay = 0.995
+    learning_rate = 0.00001
+    replace_target_iter = 20000
     dueling = True
     prioritized = True
 
     epoches = 1000
     display_interval = 240
     batch_size = 1000
-    learn_interval = 50
+    learn_interval = 10
 
     step = 0
     history = []
@@ -179,15 +125,9 @@ def run(load_sess=False, output_graph=True):
                     break;
 
                 action = oracle.choose_action(observation)
-                direction = 1
-
-                if action == 2:
-                    direction = -1
-                # if action == 3 or action == 4 or action == 5:
-                #     direction = -1
 
                 leverage_factor = goldkeeper.total_balance / initial_balance
-                position = int(max(0, min(position_base * leverage_factor, (goldkeeper.total_balance / capacity_factor) - abs(goldkeeper.position)))) * direction
+                position = int(max(0, min(position_base * leverage_factor, (goldkeeper.total_balance / capacity_factor) - abs(goldkeeper.position))))
 
                 reward = goldkeeper.get_reward(price, action, position)
 
@@ -217,7 +157,7 @@ def run(load_sess=False, output_graph=True):
 
                 observation = observation_
 
-                if step > MEMORY_SIZE and step % learn_interval == 0:
+                if step > MEMORY_SIZE * 0.1 and step % learn_interval == 0:
                     oracle.learn()
 
                 if i % display_interval == 0:

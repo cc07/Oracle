@@ -28,7 +28,7 @@ class DeepQNetwork:
             e_greedy=0.9,
             replace_target_iter=200,
             memory_size=500,
-            batch_size=32,
+            batch_size=64,
             e_greedy_increment=None,
             output_graph=False,
             dueling=True,
@@ -48,6 +48,7 @@ class DeepQNetwork:
         self.memory_size = memory_size
         self.batch_size = batch_size
         self.epsilon_increment = e_greedy_increment
+        # self.epsilon = 0 if e_greedy_increment is not None else self.epsilon_max
         self.epsilon = 0 if e_greedy_increment is not None else self.epsilon_max
 
         self.dueling = dueling      # decide to use dueling DQN or not
@@ -223,7 +224,8 @@ class DeepQNetwork:
                                  'q_max', 'q_total', 'epsilon', \
                                  'sharpe_ratio', 'n_trades', \
                                  'win', 'win_buy', 'win_sell', \
-                                 'max_win', 'max_lose', 'n_buy', 'n_sell', 'reward']
+                                 'max_win', 'max_lose', 'n_buy', \
+                                 'n_sell', 'reward', 'diff_sharpe']
 
             self.summary_placeholders = {}
             self.summary_ops = {}
@@ -248,7 +250,14 @@ class DeepQNetwork:
         #         tf.summary.histogram(tag, self.w[tag], collections = [w_c_names])
 
         with tf.variable_scope('Extra'):
-            self.action = tf.argmax(self.q_eval, axis=1)
+
+            # boltzmann
+            self.temp = tf.placeholder(shape=None, dtype=tf.float32)
+            self.q_dist = tf.nn.softmax(self.q_eval/self.temp)
+
+            # e-greedy
+            # self.action = tf.argmax(self.q_eval, axis=1)
+
         # if self.output_graph:
         # self.merged = tf.summary.merge([training_step_mse])
             # self.writer = tf.summary.FileWriter('data/' + self.dir, self.sess.graph)
@@ -277,12 +286,18 @@ class DeepQNetwork:
 
     def choose_action(self, observation):
         observation = observation[np.newaxis, :]
-        if np.random.uniform() < self.epsilon:  # choosing action
-            action = self.sess.run(self.action, feed_dict={self.s: observation, self.sample_size: 1})
+
+        # boltzmann
+        q_dist = self.sess.run(self.q_dist, feed_dict={self.s: observation, self.sample_size: 1, self.temp: 1 - self.epsilon})
+        action = np.random.choice(q_dist[0], p=q_dist[0])
+        action = np.argmax(q_dist[0] == action)
+
+        # e-greedy
+        # if np.random.uniform() < self.epsilon:  # choosing action
             # actions_value = self.sess.run(self.q_eval, feed_dict={self.s: observation})
             # action = np.argmax(actions_value)
-        else:
-            action = np.random.randint(0, self.n_actions)
+        # else:
+        #     action = np.random.randint(0, self.n_actions)
 
         self.r_actions.append(action)
 
@@ -366,8 +381,10 @@ class DeepQNetwork:
         #     self.summary_writer.add_summary(merged, self.learn_step_counter)
         # self.cost_his.append(self.cost)
 
-        # self.epsilon = self.epsilon + self.epsilon_increment if self.epsilon < self.epsilon_max else self.epsilon_max
-        self.epsilon = self.epsilon + np.exp(-self.epsilon_increment * self.learn_step_counter) if self.epsilon < self.epsilon_max else self.epsilon_max
+        if self.learn_step_counter % 100 == 0:
+            self.epsilon = self.epsilon + self.epsilon_increment if self.epsilon < self.epsilon_max else self.epsilon_max
+        # self.epsilon = self.epsilon + 0.1 * math.expm1(self.epsilon_increment * self.learn_step_counter) if self.epsilon < self.epsilon_max else self.epsilon_max
+        # print ('self.epsilon: {}, self.epsilon_increment: {}, self.learn_step_counter: {}'.format(self.epsilon, self.epsilon_increment, self.learn_step_counter))
         self.learn_step_counter += 1
 
         self.totalLoss += self.cost
@@ -419,6 +436,7 @@ class DeepQNetwork:
                 'q_max': self.totalMaxQ,
                 'q_total': self.totalQ,
                 'r_actions': self.r_actions,
+                'diff_sharpe': stat['diff_sharpe']
             }
 
             if self.output_graph:

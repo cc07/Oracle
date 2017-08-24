@@ -12,6 +12,9 @@ class Portfolio:
     hist_price = 0
     hist_sharpe_ratio = 0
 
+    hist_diff_sharpe_top = 0
+    hist_diff_sharpe_bottom = 0
+
     # def __init__(self, sess, balance, position, order_price):
     def __init__(self, balance, floating_pl, position, order_price, hurdle_rate=0.1):
 
@@ -55,47 +58,39 @@ class Portfolio:
 
         self.stat['count'] += 1
         reward = 0
-        trade = False
 
-        if (action == 1 and self.position == 0):
-            self.stat['n_buy'] += 1
-            self.stat['n_trades'] += 1
-            self.open_buy(position, price[1])
-            trade = True
-        elif (action == 2 and self.position > 0):
-            reward = self.settle_sell(price[0])
-            
         # if (action == 1 and self.position == 0):
         #     self.stat['n_buy'] += 1
         #     self.stat['n_trades'] += 1
         #     self.open_buy(position, price[1])
         #     trade = True
         # elif (action == 2 and self.position > 0):
-        #     self.stat['n_buy'] += 1
-        #     self.stat['n_trades'] += 1
-        #     self.open_buy(position, price[1])
-        #     trade = True
-        # elif (action == 3 and self.position == 0):
-        #     self.stat['n_sell'] += 1
-        #     self.stat['n_trades'] += 1
-        #     self.open_sell(position, price[0])
-        #     trade = True
-        # elif (action == 4 and self.position < 0):
-        #     self.stat['n_sell'] += 1
-        #     self.stat['n_trades'] += 1
-        #     self.open_sell(position, price[0])
-        #     trade = True
-        # elif (action == 5 and self.position > 0):
-        #     # self.stat['n_sell'] += 1
-        #     reward = self.settle_sell(price[0])
-        # elif (action == 6 and self.position < 0):
-        #     # self.stat['n_buy'] += 1
-        #     reward = self.settle_buy(price[1])
+        #     self.settle_sell(price[0])
 
-        if trade:
-            reward = self.update_stat(price)
-        else:
-            self.update_stat(price)
+        if (action == 1 and self.position == 0):
+            self.stat['n_buy'] += 1
+            self.stat['n_trades'] += 1
+            self.open_buy(position, price[1])
+        elif (action == 2 and self.position > 0):
+            self.stat['n_buy'] += 1
+            self.stat['n_trades'] += 1
+            self.open_buy(position, price[1])
+        elif (action == 3 and self.position == 0):
+            self.stat['n_sell'] += 1
+            self.stat['n_trades'] += 1
+            self.open_sell(position, price[0])
+        elif (action == 4 and self.position < 0):
+            self.stat['n_sell'] += 1
+            self.stat['n_trades'] += 1
+            self.open_sell(position, price[0])
+        elif (action == 5 and self.position > 0):
+            # self.stat['n_sell'] += 1
+            reward = self.settle_sell(price[0])
+        elif (action == 6 and self.position < 0):
+            # self.stat['n_buy'] += 1
+            reward = self.settle_buy(price[1])
+
+        self.update_stat(price)
 
         self.stat['reward'] += reward
         # print('Reward for action[{}]: {}'.format(action, reward))
@@ -110,7 +105,7 @@ class Portfolio:
     def open_sell(self, position, price):
 
         # position = self.cal_position_size(-1)
-        self.add_order(position, price)
+        self.add_order(position * -1, price)
 
     def settle_buy(self, price):
         return self.close_order(price)
@@ -175,7 +170,7 @@ class Portfolio:
         self.std = np.std(self.hist_profit_loss)
         # self.sharpe_ratio = (self.mean_return - 0.0010 * abs(self.position))
         self.sharpe_ratio = self.mean_return
-        self.sharpe_ratio = self.sharpe_ratio / self.std if self.std > 0.001 else self.sharpe_ratio / self.sharpe_ratio
+        self.sharpe_ratio = self.sharpe_ratio / self.std if self.std > 0.0001 else self.sharpe_ratio / self.sharpe_ratio
         # diff_sharpe_ratio = self.sharpe_ratio - self.hist_sharpe_ratio
 
         # print('mean: {}, std: {}'.format(self.mean_return, self.std))
@@ -186,7 +181,17 @@ class Portfolio:
         self.hist_sharpe_ratio = self.sharpe_ratio
         self.stat['sharpe_ratio'] = self.sharpe_ratio
         # return profit_loss
-        return log_return
+
+        decay = 0.9
+        diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
+        diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
+        diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
+
+        self.hist_diff_sharpe_top = diff_sharpe_top
+        self.hist_diff_sharpe_bottom = diff_sharpe_bottom
+        self.stat['diff_sharpe'] = diff_sharpe
+
+        return diff_sharpe
     # def book_order(self, position, price):
     #
     #     try:
@@ -220,7 +225,15 @@ class Portfolio:
         hurdle_return = 0.001 * abs(self.position)
         # print('hurdle: {}'.format(hurdle_return))
         log_return = log(self.total_balance - hurdle_return) - log(self.hist_balance)
-        # log_episode_return = log(self.total_balance/self.hist_balance)
+
+        # decay = 0.9
+        # diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
+        # diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
+        # diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
+        #
+        # self.hist_diff_sharpe_top = diff_sharpe_top
+        # self.hist_diff_sharpe_bottom = diff_sharpe_bottom
+        # self.stat['diff_sharpe'] = diff_sharpe
 
         # if len(self.hist_profit_loss) > 500:
         #     self.hist_profit_loss.rotate(np.random.randint(0, len(self.hist_profit_loss)))
@@ -271,7 +284,7 @@ class Portfolio:
         #     print('reward is nan, setting its value to 0')
         #     reward = 0
         #
-        return log_return
+        # return diff_sharpe
 
 if __name__ == '__main__':
 
