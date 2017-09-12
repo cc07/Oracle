@@ -1,6 +1,6 @@
 # from http.server import BaseHTTPRequestHandler, HTTPServer
 # from urlparse import parse_qs
-import sys
+import sys, os
 import getopt
 
 import math
@@ -8,15 +8,24 @@ import pandas as pd
 import tensorflow as tf
 import numpy as np
 import pickle
+from sklearn.externals import joblib
 
 from DQN import DeepQNetwork
 from Portfolio import Portfolio
+
+sys.path.append('/Users/cc/documents/ds/matryoshka/')
+
+from rhythm import Rhythm
 
 def run(load_sess=False, output_graph=True):
 
     print ('Loading csv data')
     # train = pd.read_csv('./data/quote_M15.csv')
-    price_train = pd.read_csv('./data/quote.csv', header=None)
+    # data_train = joblib.load('./data/data.pkl')
+    data_train = joblib.load('./data/data_predicted.pkl')
+    # price_train = pd.read_csv('./data/quote.csv', header=None)
+    price_train = joblib.load('./data/price.pkl')
+    X_train = joblib.load('./data/observation.pkl')
     # featureM1 = pd.read_csv('./data/quoteM1.csv')
     # featureM5 = pd.read_csv('./data/quoteM5.csv')
     # featureM15 = pd.read_csv('./data/quoteM15.csv')
@@ -30,21 +39,22 @@ def run(load_sess=False, output_graph=True):
     #                 featureM15.loc[i].as_matrix(),
     #                 featureH1.loc[i].as_matrix()], np.float64)
 
-    X_train = pickle.load(open('./data/data.pkl', 'rb'))
-    price_train = price_train.as_matrix()
+    # X_train = pickle.load(open('./data/data.pkl', 'rb'))
+    # price_train = price_train.as_matrix()
     print ('Loading finished')
 
     # X_train = train[1:100001]
     # X_train = train[1:40000]
     # X_train = X_train.drop(['Timestamp', 'Date', 'Time'], axis=1)
-    n_actions = 7
-    n_features = X_train.shape[1]
-    n_channels = X_train.shape[2]
+    n_action = 3
+    n_feature = X_train.shape[1] + 10
+    n_lookback = 9
+    n_channel = 1
 
-    MEMORY_SIZE = 500000
+    MEMORY_SIZE = 10000
     e_greedy_increment = 0.0001
     reward_decay = 0.995
-    learning_rate = 0.00001
+    learning_rate = 0.0001
     replace_target_iter = 20000
     dueling = True
     prioritized = True
@@ -64,25 +74,39 @@ def run(load_sess=False, output_graph=True):
 
     save_interval = 10000
 
-    oracle = DeepQNetwork(n_actions=n_actions, n_features=n_features, n_channels=n_channels, memory_size=MEMORY_SIZE,
+    print('Initializing Oracle')
+    oracle = DeepQNetwork(n_action=n_action, n_lookback=n_lookback, n_feature=n_feature, n_channel=n_channel, memory_size=MEMORY_SIZE,
         reward_decay=reward_decay, learning_rate=learning_rate, replace_target_iter=replace_target_iter,
         e_greedy_increment=e_greedy_increment, dueling=dueling, output_graph=output_graph, prioritized=prioritized)
 
-    if (load_sess):
-        oracle.load()
+    n_lookback = 9 #X.shape[1]
+    n_feature = 32 #X.shape[2]
+    n_channel = 1 #X.shape[3]
+    n_output = 7 #y.shape[1]
 
-    saver = tf.train.Saver()
+    print('Initializing Rhythm')
+    # rhythm = Rhythm(n_lookback, n_feature, n_channel, n_output)
+    rhythm = None
+
+    print('Restoring sess for Rhythm')
+    # rhythm.load()
+
+    # if (load_sess):
+    #     oracle.load()
+
     last_save_step = 0
+    # X_train = np.reshape(X_train, (-1, )
 
     total_batch = int(X_train.shape[0] / batch_size)
-    X_batches = np.array_split(X_train, total_batch)
+    data_batches = np.array_split(data_train, total_batch)
     price_batches = np.array_split(price_train, total_batch)
+    X_batches = np.array_split(X_train, total_batch)
 
     for epoch in range(epoches):
 
         print('Epoch: {}'.format(epoch))
 
-        goldkeeper = Portfolio(initial_balance, 0, 0, 0)
+        goldkeeper = Portfolio(initial_balance, 0, 0, 0, position_base=position_base, capacity_factor=capacity_factor, leverage_factor=leverage_factor)
         action = None
 
         for b in range(total_batch):
@@ -94,21 +118,10 @@ def run(load_sess=False, output_graph=True):
             # dataset = X_batches[b]
             # price = dataset[0][0:2]
             # observation = dataset[0][2:]
-            observation = X_batches[b][0]
-            price = price_batches[b][0]
-
-            # print('price: {}/{}'.format(price[0], price[1]))
-            # if goldkeeper.position == 0:
-            #     holding_status = 0
-            # elif goldkeeper.position > 0:
-            #     holding_status = 1
-            # elif goldkeeper.position < 0:
-            #     holding_status = 2
-            #
-            # observation = np.hstack((observation, holding_status))
-            #
-            # holding_capacity = abs(goldkeeper.position) / (goldkeeper.total_balance / capacity_factor)
-            # observation = np.hstack((observation, holding_capacity))
+            dataset = data_batches[b][0]
+            price = price_batches[b][0][2:4]
+            ema = price_batches[b][0][4]
+            observation = observe_environment(rhythm, goldkeeper, X_batches[b][0], price, dataset)
 
             # print ('total_batch: {}, len(X_train): {}'.format(total_batch, len(X_train)))
             # print ('len(X_batches[b]): {}'.format(len(X_batches[b])))
@@ -118,8 +131,9 @@ def run(load_sess=False, output_graph=True):
                 # print('price: {}/{}'.format(price[0], price[1]))
                 # print('observation: {}'.format(observation))
 
-                # if (i == 5):
-                #     sys.exit(2)
+                # print('dataset: {}'.format(dataset))
+                # print('price: {}'.format(price))
+                # print('observation: {}'.format(observation))
 
                 if goldkeeper.balance < 200 or (i == len(X_batches[b]) and b == total_batch):
                     break;
@@ -130,33 +144,33 @@ def run(load_sess=False, output_graph=True):
                 position = int(max(0, min(position_base * leverage_factor, (goldkeeper.total_balance / capacity_factor) - abs(goldkeeper.position))))
 
                 try:
-                    price_ = price_batches[b][i+1] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0]
+                    dataset_ = data_batches[b][i+1] if (i < len(data_batches[b]) - 1) else data_batches[b+1][0]
+                    price_ = price_batches[b][i+1][2:4] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0][2:4]
+                    ema_ = price_batches[b][i+1][4] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0][4]
+
+                    reward = goldkeeper.get_reward(action, price, position, price_, ema)
+
+                    # print('reward: {}, price: {}, price_: {}'.format(reward, price, price_))
+                    goldkeeper.book_record(price, action, position, price_)
+
                     observation_ = X_batches[b][i+1] if (i < len(X_batches[b]) - 1) else X_batches[b+1][0]
+                    observation_ = observe_environment(rhythm, goldkeeper, observation_, price_, dataset_)
 
-                    reward = goldkeeper.get_reward(price, action, position, price_)
-                    # price = dataset[i+1][:2] if (i < len(dataset) - 1) else X_batches[b+1][0][:2]
-                    # observation_ = dataset[i+1][2:] if (i < len(dataset) - 1) else X_batches[b+1][0][2:]
-
-                    # if goldkeeper.position == 0:
-                    #     holding_status = 0
-                    # elif goldkeeper.position > 0:
-                    #     holding_status = 1
-                    # elif goldkeeper.position < 0:
-                    #     holding_status = 2
-                    #
-                    # observation_ = np.hstack((observation_, holding_status))
-                    #
-                    # holding_capacity = abs(goldkeeper.position) / (goldkeeper.total_balance / capacity_factor)
-                    # observation_ = np.hstack((observation_, holding_capacity))
-
-                    oracle.store_transition(observation, action, reward, observation_)
                 except Exception as e:
                     print(str(e))
                     print('Error b: {}, max_b: {}, i: {}, length: {}, step: {}'.format(b, total_batch, i, len(X_train), step))
                     break
 
-                observation = observation_
+
+                # for idx in range(len(reward)):
+                #     oracle.store_transition(observation, idx, reward[idx], observation_)
+
+                oracle.store_transition(observation, action, reward, observation_)
+
+                dataset = dataset_
                 price = price_
+                ema = ema_
+                observation = observation_
 
                 if step > MEMORY_SIZE and step % learn_interval == 0:
                     oracle.learn()
@@ -175,16 +189,12 @@ def run(load_sess=False, output_graph=True):
 
         oracle.finish_episode(epoch, goldkeeper.stat)
 
-    # host = '127.0.0.1'
-    # port = 8000
-    # print('starting server...{}:{}'.format(host, port))
-    #
-    # HTTPServer_RequestHandler.oracle = oracle
-    # server_address = (host, port)
-    # httpd = HTTPServer(server_address, HTTPServer_RequestHandler)
-    #
-    # print('running server...')
-    # httpd.serve_forever()
+def observe_environment(rhythm, goldkeeper, base_observation, price, dataset):
+
+    # observation = np.hstack((rhythm.predict(np.array([dataset])), goldkeeper.get_environment()))
+    observation = np.hstack((dataset, goldkeeper.get_environment()))
+    observation = np.hstack((observation, base_observation))
+    return observation
 
 if __name__ == '__main__':
 

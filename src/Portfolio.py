@@ -16,7 +16,7 @@ class Portfolio:
     hist_diff_sharpe_bottom = 0
 
     # def __init__(self, sess, balance, position, order_price):
-    def __init__(self, balance, floating_pl, position, order_price, hurdle_rate=0.1):
+    def __init__(self, balance, floating_pl, position, order_price, hurdle_rate=0.1, position_base=500, capacity_factor=0.1, leverage_factor=1):
 
         # self.sess = sess
         self.hist_balance = balance
@@ -27,10 +27,16 @@ class Portfolio:
         self.position = position
         self.order_price = order_price
         self.contract_size = 100000
-        self.hurdle_rate = hurdle_rate
-        self.counter = 0
 
+        self.hurdle_rate = hurdle_rate
+        self.position_base = position_base
+        self.capacity_factor = capacity_factor
+        self.leverage_factor = leverage_factor
+
+        self.counter = 0
         self.n_order = 0
+
+        self.holding_period = 1
 
         self.stat = {
             'win': 0,
@@ -52,43 +58,152 @@ class Portfolio:
 
         print ('Initial balance: {}, Position: {}, Order Price: {}'.format(self.balance, self.position, self.order_price))
 
-    def get_reward(self, price, action, position, price_):
+    def get_reward(self, action, price, position, price_, ema):
+
+        profit_loss = 0
+        # mid = (price[0] + price[1]) / 2
+        # trend_incentive = 0.00001 * (self.holding_period ** 0.5)
+
+        if self.floating_pl > 0:
+            incentive = 0.00001 * (self.holding_period ** 0.5)
+        else:
+            incentive = 0
+
+        if action == 0 and self.position > 0: # hold & buy
+            profit_loss = self.position * incentive
+        elif action == 0 and self.position < 0: # hold & sell
+            profit_loss = self.position * incentive * -1
+        elif action == 1 and self.position == 0: # open buy
+            # profit_loss = (price[0] - price[1]) * position
+            profit_loss = 0
+        elif action == 1 and self.position > 0: # addtional buy
+            # profit_loss = (price[0] - price[1]) * position + self.position * incentive
+            profit_loss = self.position * incentive
+        elif action == 1 and self.position < 0: # settle buy
+            profit_loss = (price[1] - self.order_price) * self.position * (self.holding_period ** 0.5)
+        elif action == 2 and self.position == 0: # open sell
+            # profit_loss = (price[0] - price[1]) * position
+            profit_loss = 0
+        elif action == 2 and self.position < 0: # addtional sell
+            # profit_loss = (price[0] - price[1]) * position + self.position * incentive * -1
+            profit_loss = self.position * incentive * -1
+        elif action == 2 and self.position > 0: # settle sell
+            profit_loss = (price[0] - self.order_price) * self.position * (self.holding_period ** 0.5)
+
+        # if mid > ema and action == 0 and self.position > 0:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive
+        # elif mid > ema and action == 1:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive
+        # elif mid < ema and action == 0 and self.position < 0:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive
+        # elif mid < ema and action == 2:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive
+
+        if self.total_balance + profit_loss > 0:
+            log_return = log(self.total_balance + profit_loss) - log(self.total_balance)
+        else:
+            log_return = log(self.total_balance) * -1
+
+        decay = 0.9
+        diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
+        diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
+        diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
+
+        reward = diff_sharpe
+
+        # print('action: {} reward: {}'.format(action, reward))
+        # reward = np.zeros(3)
+
+        # for i in range(len(reward)):
+        #     if i == 1:
+        #         order_price = self.order_price if self.order_price != 0 else price[1]
+        #         reward[i] = compute_reward(self, get_buy_reward(self, order_price, price_[0], position))
+        #     elif i == 2:
+        #         order_price = self.order_price if self.order_price != 0 else price[0]
+        #         reward[i] = compute_reward(self, get_sell_reward(self, order_price, price_[1], position))
+        #     else:
+        #         reward[i] = compute_reward(self, )
+            # if i == 0 and self.position > 0:
+            #     reward[i] = compute_reward(self, get_sell_reward(self, price[0], self.position, price_[0]))
+            # elif i == 0 and self.position < 0:
+            #     reward[i] = compute_reward(self, get_buy_reward(self, price[1], abs(self.position), price_[1]))
+            # elif i == 1 and self.position >= 0:
+            #     reward[i] = compute_reward(self, get_buy_reward(self, price[1], self.position + position, price_[0]))
+            # elif i == 1 and self.position < 0:
+            #     reward[i] = compute_reward(self, get_buy_reward(self, price[0], abs(self.position), price_[0]))
+            # elif i == 2 and self.position <= 0:
+            #     reward[i] = compute_reward(self, get_sell_reward(self, price[0], abs(self.position) + position, price_[1]))
+            # elif i == 2 and self.position > 0:
+            #     reward[i] = compute_reward(self, get_sell_reward(self, price[1], self.position, price_[1]))
+            # else:
+            #     reward[i] = 0
+
+            # if i == 1 and self.position == 0:
+            #     reward[i] = compute_reward(self, get_buy_reward(price[1], position, price_[0]))
+            # elif i == 2 and self.position > 0:
+            #     reward[i] = compute_reward(self, get_buy_reward(price[1], self.position + position, price_[0]))
+            # elif i == 3 and self.position == 0:
+            #     reward[i] = compute_reward(self, get_sell_reward(price[0], position, price_[1]))
+            # elif i == 4 and self.position < 0:
+            #     reward[i] = compute_reward(self, get_sell_reward(price[0], abs(self.position) + position, price_[1]))
+            # elif i == 5:
+            #     reward[i] = compute_reward(self, get_sell_reward(price[0], abs(self.position), price_[1])) if self.position != 0 else 0
+            # elif i == 6:
+            #     reward[i] = compute_reward(self, get_buy_reward(price[1], abs(self.position), price_[0])) if self.position != 0 else 0
+            # elif i == 0 and self.position > 0:
+            #     reward[i] = compute_reward(self, get_sell_reward(price[0], self.position, price_[0]))
+            # elif i == 0 and self.position < 0:
+            #     reward[i] = compute_reward(self, get_buy_reward(price[1], abs(self.position), price_[1]))
+            # else:
+            #     reward[i] = 0
+
+        return reward
+
+    def book_record(self, price, action, position, price_):
 
         # print('action: {}, price_prev: {}, price: {}, self.positon: {}'.format(action, price_prev, price, self.position))
 
         self.stat['count'] += 1
         reward = 0
 
+        if (abs(self.position) > 0):
+            self.holding_period += 1
+
+        if (action == 1 and self.position >= 0):
+            self.stat['n_buy'] += 1
+            self.stat['n_trades'] += 1
+            self.open_buy(position, price[1])
+        elif (action == 1 and self.position < 0):
+            self.settle_buy(price[1])
+        elif (action == 2 and self.position <= 0):
+            self.stat['n_sell'] += 1
+            self.stat['n_trades'] += 1
+            self.open_sell(position, price[0])
+        elif (action == 2 and self.position > 0):
+            self.settle_sell(price[0])
+
         # if (action == 1 and self.position == 0):
         #     self.stat['n_buy'] += 1
         #     self.stat['n_trades'] += 1
         #     self.open_buy(position, price[1])
-        #     trade = True
         # elif (action == 2 and self.position > 0):
-        #     self.settle_sell(price[0])
-
-        if (action == 1 and self.position == 0):
-            self.stat['n_buy'] += 1
-            self.stat['n_trades'] += 1
-            self.open_buy(position, price[1])
-        elif (action == 2 and self.position > 0):
-            self.stat['n_buy'] += 1
-            self.stat['n_trades'] += 1
-            self.open_buy(position, price[1])
-        elif (action == 3 and self.position == 0):
-            self.stat['n_sell'] += 1
-            self.stat['n_trades'] += 1
-            self.open_sell(position, price[0])
-        elif (action == 4 and self.position < 0):
-            self.stat['n_sell'] += 1
-            self.stat['n_trades'] += 1
-            self.open_sell(position, price[0])
-        elif (action == 5 and self.position > 0):
-            # self.stat['n_sell'] += 1
-            reward = self.settle_sell(price[0])
-        elif (action == 6 and self.position < 0):
-            # self.stat['n_buy'] += 1
-            reward = self.settle_buy(price[1])
+        #     self.stat['n_buy'] += 1
+        #     self.stat['n_trades'] += 1
+        #     self.open_buy(position, price[1])
+        # elif (action == 3 and self.position == 0):
+        #     self.stat['n_sell'] += 1
+        #     self.stat['n_trades'] += 1
+        #     self.open_sell(position, price[0])
+        # elif (action == 4 and self.position < 0):
+        #     self.stat['n_sell'] += 1
+        #     self.stat['n_trades'] += 1
+        #     self.open_sell(position, price[0])
+        # elif (action == 5 and self.position > 0):
+        #     # self.stat['n_sell'] += 1
+        #     reward = self.settle_sell(price[0])
+        # elif (action == 6 and self.position < 0):
+        #     # self.stat['n_buy'] += 1
+        #     reward = self.settle_buy(price[1])
 
         reward = self.update_stat(price_)
 
@@ -178,6 +293,7 @@ class Portfolio:
         self.n_order = 0
         self.position = 0
         self.order_price = 0
+        self.holding_period = 1
         self.hist_sharpe_ratio = self.sharpe_ratio
         self.stat['sharpe_ratio'] = self.sharpe_ratio
         # return profit_loss
@@ -287,6 +403,25 @@ class Portfolio:
         #     reward = 0
         #
         return diff_sharpe
+
+    def get_holding_status(self):
+        if self.position == 0:
+            holding_status = 0
+        elif self.position > 0:
+            holding_status = 1
+        elif self.position < 0:
+            holding_status = 2
+
+        return holding_status
+
+    def get_holding_capacity(self):
+        return abs(self.position) / (self.total_balance / self.capacity_factor)
+
+    def get_position_status(self):
+        return 1 if self.floating_pl >= 0 else 0
+
+    def get_environment(self):
+        return np.hstack((self.get_holding_status(), self.get_holding_capacity(), self.get_position_status()))
 
 if __name__ == '__main__':
 

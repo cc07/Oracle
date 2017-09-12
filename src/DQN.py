@@ -20,9 +20,10 @@ class DeepQNetwork:
 
     def __init__(
             self,
-            n_actions,
-            n_features,
-            n_channels,
+            n_action,
+            n_lookback,
+            n_feature,
+            n_channel,
             learning_rate=0.0001,
             reward_decay=0.9,
             e_greedy=0.9,
@@ -37,9 +38,9 @@ class DeepQNetwork:
             load_memory=False
     ):
 
-        self.n_actions = n_actions
-        self.n_features = n_features
-        self.n_channels = n_channels
+        self.n_action = n_action
+        self.n_feature = n_feature
+        self.n_channel = n_channel
         self.lr = learning_rate
         self.op_decay = 0.9
         self.gamma = reward_decay
@@ -56,21 +57,19 @@ class DeepQNetwork:
         self.output_graph = output_graph
 
         self.keep_prob_l1 = 0.8
-        self.l1_dim = 32
-        self.fc_dim = 16
+        self.l1_dim = 64
+        self.fc_dim = 32
         self.trace_length = 4
         # self.learn_step_counter = 1
         self.cost = 0
-        # self.memory = np.zeros((self.memory_size, n_features*2+2))
+        # self.memory = np.zeros((self.memory_size, n_feature*2+2))
 
         if load_memory:
             self.load_memory()
         elif self.prioritized:
             self.memory = Memory(capacity=memory_size)
         else:
-            self.memory = np.zeros((self.memory_size, n_features*2+2))
-
-        self._build_net()
+            self.memory = np.zeros((self.memory_size, n_feature*2+2))
 
         self.totalLoss = 0.0
         self.totalQ = 0.0
@@ -78,41 +77,53 @@ class DeepQNetwork:
         self.r_actions = deque()
         self.cost_his = deque()
 
+        self.graph = tf.Graph()
+        self._build_net()
+
+        with self.graph.as_default() as graph:
+            self.init = tf.global_variables_initializer()
+            self.saver = tf.train.Saver()
+
         if sess is None:
-            self.sess = tf.Session()
-            self.sess.run(tf.global_variables_initializer())
+            self.sess = tf.Session(graph=self.graph)
+            self.sess.run(self.init)
         else:
             self.sess = sess
 
         if self.output_graph:
-            self.summary_writer = tf.summary.FileWriter("log/", self.sess.graph)
+            self.summary_writer = tf.summary.FileWriter("log/", self.graph)
 
     def _build_net(self):
         def build_layers(s, c_names, n_l1, n_fc, w_initializer, b_initializer, sample_size):
 
+            s = tf.reshape(s, [sample_size, self.n_feature, self.n_channel])
+
             with tf.variable_scope('conv1') as scope:
-                # s = tf.reshape(s, [sample_size, self.n_features, self.n_channels])
-                # k1 = tf.get_variable('kernel1', shape=[1, self.n_channels, self.n_features])
+                # k1 = tf.get_variable('kernel1', shape=[1, self.n_channel, self.n_feature])
             #     conv1 = tf.nn.conv1d(s, k1, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-                conv1 = tf.layers.conv1d(s, 32, 8, strides=1, padding='SAME', activation=tf.nn.relu)
-                conv1 = tf.layers.max_pooling1d(conv1, 2, 4, padding='SAME')
+                conv1 = tf.layers.conv1d(s, 64, 1, strides=1, padding='SAME', activation=None)
+                # conv1 = tf.layers.max_pooling1d(conv1, 2, 4, padding='SAME')
             #
             with tf.variable_scope('conv2') as scope:
             #     # k2 = tf.get_variable('kernel2', shape=[1, n_l1, n_l1])
             #     # conv2 = tf.nn.conv1d(conv1, k2, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-                conv2 = tf.layers.conv1d(conv1, 64, 4, strides=1, padding='SAME', activation=tf.nn.relu)
-                conv2 = tf.layers.max_pooling1d(conv2, 2, 2, padding='SAME')
+                conv2 = tf.layers.conv1d(s, 64, 3, strides=1, padding='SAME', activation=None)
+                # conv2 = tf.layers.max_pooling1d(conv2, 2, 2, padding='SAME')
             #
             with tf.variable_scope('conv3') as scope:
             # #     k3 = tf.get_variable('kernel3', shape=[1, n_l1, n_fc])
             # #     fc = tf.nn.conv1d(conv2, k3, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-                conv3 = tf.layers.conv1d(conv2, 64, 3, strides=1, padding='SAME', activation=tf.nn.relu)
-                conv3 = tf.layers.max_pooling1d(conv2, 2, 1, padding='SAME')
+                conv3 = tf.layers.conv1d(s, 64, 5, strides=1, padding='SAME', activation=None)
+                # conv3 = tf.layers.max_pooling1d(conv2, 2, 1, padding='SAME')
+
+            with tf.variable_scope('conv4') as scrope:
+                conv4 = tf.layers.max_pooling1d(s, 3, 1, padding='SAME')
 
             with tf.variable_scope('l1') as scope:
-                fc = tf.reshape(conv3, shape=[sample_size, 64 * 2])
-                # w1 = tf.get_variable('w1', shape=[self.n_features, n_l1], initializer=w_initializer, collections=c_names)
-                w1 = tf.get_variable('w1', shape=[64 * 2, n_l1], initializer=w_initializer, collections=c_names)
+                fc = tf.concat([conv1, conv2, conv3, conv4], axis=2)
+                fc = tf.reshape(conv3, shape=[sample_size, 5440])
+                # w1 = tf.get_variable('w1', shape=[self.n_feature, n_l1], initializer=w_initializer, collections=c_names)
+                w1 = tf.get_variable('w1', shape=[5440, n_l1], initializer=w_initializer, collections=c_names)
                 b1 = tf.get_variable('b1', shape=[1, n_l1], initializer=b_initializer, collections=c_names)
                 l1 = tf.nn.relu(tf.matmul(fc, w1) + b1)
                 # l1 = tf.nn.dropout(l1, self.keep_prob_l1)
@@ -139,8 +150,8 @@ class DeepQNetwork:
                 # fc = rnn[-1]
 
             # with tf.variable_scope('fc') as scope:
-            #     fc = tf.reshape(conv3, shape=[tf.shape(conv3)[0], 64 * self.n_features / 4])
-            #     w = tf.get_variable('w', shape=[64 * self.n_features / 4, n_fc], initializer=w_initializer, collections=c_names)
+            #     fc = tf.reshape(conv3, shape=[tf.shape(conv3)[0], 64 * self.n_feature / 4])
+            #     w = tf.get_variable('w', shape=[64 * self.n_feature / 4, n_fc], initializer=w_initializer, collections=c_names)
             #     b = tf.get_variable('b', shape=[1, n_fc], initializer=b_initializer, collections=c_names)
             #     fc = tf.nn.relu(tf.matmul(fc, w) + b)
 
@@ -153,8 +164,8 @@ class DeepQNetwork:
                     # self.V = tf.nn.bias_add(tf.matmul(l1, w2), b2)
 
                 with tf.variable_scope('Advantage'):
-                    w_out = tf.get_variable('w_out', [n_fc, self.n_actions], initializer=w_initializer, collections=c_names)
-                    b_out = tf.get_variable('b_out', [1, self.n_actions], initializer=b_initializer, collections=c_names)
+                    w_out = tf.get_variable('w_out', [n_fc, self.n_action], initializer=w_initializer, collections=c_names)
+                    b_out = tf.get_variable('b_out', [1, self.n_action], initializer=b_initializer, collections=c_names)
                     self.A = tf.matmul(fc, w_out) + b_out
                     # self.A = tf.nn.bias_add(tf.matmul(l1, w2), b2)
 
@@ -162,8 +173,8 @@ class DeepQNetwork:
                     out = self.V + (self.A - tf.reduce_mean(self.A, axis=1, keep_dims=True))     # Q = V(s) + A(s,a)
             else:
                 with tf.variable_scope('Q'):
-                    w_out = tf.get_variable('w_out', [n_fc, self.n_actions], initializer=w_initializer, collections=c_names)
-                    b_out = tf.get_variable('b_out', [1, self.n_actions], initializer=b_initializer, collections=c_names)
+                    w_out = tf.get_variable('q_w_out', [n_fc, self.n_action], initializer=w_initializer, collections=c_names)
+                    b_out = tf.get_variable('q_b_out', [1, self.n_action], initializer=b_initializer, collections=c_names)
                     out = tf.matmul(fc, w_out) + b_out
                     # out = tf.nn.bias_add(tf.matmul(l1, w2), b2)
 
@@ -171,100 +182,101 @@ class DeepQNetwork:
             # return w1, w2, w3, out
             # return w1, out
 
-        # ------------------ build evaluate_net ------------------
-        if self.prioritized:
-            self.ISWeights = tf.placeholder(tf.float32, [None, 1], name='IS_weights')
-
-        self.s = tf.placeholder(tf.float32, shape=(None, self.n_features, self.n_channels), name='s')  # input
-        self.q_target = tf.placeholder(tf.float32, shape=(None, self.n_actions), name='Q_target')  # for calculating loss
-        self.sample_size = tf.Variable(1, dtype=tf.int32, name='sample_size')
-
-        with tf.variable_scope('eval_net'):
-            # c_names, n_l1, w_initializer, b_initializer = \
-            #     ['eval_net_params', tf.GraphKeys.GLOBAL_VARIABLES], 20, \
-            #     tf.random_normal_initializer(0., 0.3), tf.constant_initializer(0.1)  # config of layers
-            c_names, n_l1, n_fc, w_initializer, b_initializer = \
-                ['eval_net_params', tf.GraphKeys.GLOBAL_VARIABLES], self.l1_dim, self.fc_dim, \
-                tf.contrib.layers.xavier_initializer(), tf.random_normal_initializer()
-
-            self.q_eval = build_layers(self.s, c_names, n_l1, n_fc, w_initializer, b_initializer, self.sample_size)
-            # w1, w2, w3, self.q_eval = build_layers(self.s, c_names, n_l1, n_fc, w_initializer, b_initializer)
-            # w1, self.q_eval = build_layers(self.s, c_names, n_l1, w_initializer, b_initializer)
-
-        with tf.variable_scope('loss'):
+        with self.graph.as_default() as graph:
+            # ------------------ build evaluate_net ------------------
             if self.prioritized:
-                self.abs_errors = tf.reduce_sum(tf.abs(self.q_target - self.q_eval), axis=1)    # for updating Sumtree
-                self.loss = tf.reduce_mean(self.ISWeights * tf.squared_difference(self.q_target, self.q_eval))
-            else:
-                self.loss = tf.reduce_mean(tf.squared_difference(self.q_target, self.q_eval))
-            tf.summary.scalar('loss', self.loss)
+                self.ISWeights = tf.placeholder(tf.float32, [None, 1], name='IS_weights')
 
-        # with tf.variable_scope('l2_loss'):
-        #     self.loss = self.loss + tf.nn.l2_loss(w1) * 0.01
-        #     self.loss = self.loss + tf.nn.l2_loss(w2) * 0.01
-        #     self.loss = self.loss + tf.nn.l2_loss(w3) * 0.01
+            self.s = tf.placeholder(tf.float32, shape=(None, self.n_feature), name='s')  # input
+            self.q_target = tf.placeholder(tf.float32, shape=(None, self.n_action), name='Q_target')  # for calculating loss
+            self.sample_size = tf.Variable(1, dtype=tf.int32, name='sample_size')
 
-        with tf.variable_scope('train'):
-            self._train_op = tf.train.RMSPropOptimizer(learning_rate=self.lr, decay=self.op_decay).minimize(self.loss)
+            with tf.variable_scope('eval_net'):
+                # c_names, n_l1, w_initializer, b_initializer = \
+                #     ['eval_net_params', tf.GraphKeys.GLOBAL_VARIABLES], 20, \
+                #     tf.random_normal_initializer(0., 0.3), tf.constant_initializer(0.1)  # config of layers
+                c_names, n_l1, n_fc, w_initializer, b_initializer = \
+                    ['eval_net_params', tf.GraphKeys.GLOBAL_VARIABLES], self.l1_dim, self.fc_dim, \
+                    tf.contrib.layers.xavier_initializer(), tf.random_normal_initializer()
 
-        # ------------------ build target_net ------------------
-        self.s_ = tf.placeholder(tf.float32, [None, self.n_features, self.n_channels], name='s_')    # input
-        with tf.variable_scope('target_net'):
-            c_names = ['target_net_params', tf.GraphKeys.GLOBAL_VARIABLES]
+                self.q_eval = build_layers(self.s, c_names, n_l1, n_fc, w_initializer, b_initializer, self.sample_size)
+                # w1, w2, w3, self.q_eval = build_layers(self.s, c_names, n_l1, n_fc, w_initializer, b_initializer)
+                # w1, self.q_eval = build_layers(self.s, c_names, n_l1, w_initializer, b_initializer)
 
-            self.q_next = build_layers(self.s_, c_names, n_l1, n_fc, w_initializer, b_initializer, self.sample_size)
-            # w1_target, w2_target, w3_target, self.q_next = build_layers(self.s_, c_names, n_l1, n_fc, w_initializer, b_initializer)
-            # w1_target, self.q_next = build_layers(self.s_, c_names, n_l1, w_initializer, b_initializer)
+            with tf.variable_scope('loss'):
+                if self.prioritized:
+                    self.abs_errors = tf.reduce_sum(tf.abs(self.q_target - self.q_eval), axis=1)    # for updating Sumtree
+                    self.loss = tf.reduce_mean(self.ISWeights * tf.squared_difference(self.q_target, self.q_eval))
+                else:
+                    self.loss = tf.reduce_mean(tf.squared_difference(self.q_target, self.q_eval))
+                tf.summary.scalar('loss', self.loss)
 
-        ######
-        w_c_names = 'eval_net_params_summaries'
+            # with tf.variable_scope('l2_loss'):
+            #     self.loss = self.loss + tf.nn.l2_loss(w1) * 0.01
+            #     self.loss = self.loss + tf.nn.l2_loss(w2) * 0.01
+            #     self.loss = self.loss + tf.nn.l2_loss(w3) * 0.01
 
-        with tf.variable_scope('summary'):
-            scalar_summary_tags = ['loss_avg', 'e_balance', \
-                                 'q_max', 'q_total', 'epsilon', \
-                                 'sharpe_ratio', 'n_trades', \
-                                 'win', 'win_buy', 'win_sell', \
-                                 'max_win', 'max_lose', 'n_buy', \
-                                 'n_sell', 'reward', 'diff_sharpe']
+            with tf.variable_scope('train'):
+                self._train_op = tf.train.RMSPropOptimizer(learning_rate=self.lr, decay=self.op_decay).minimize(self.loss)
 
-            self.summary_placeholders = {}
-            self.summary_ops = {}
+            # ------------------ build target_net ------------------
+            self.s_ = tf.placeholder(tf.float32, [None, self.n_feature], name='s_')    # input
+            with tf.variable_scope('target_net'):
+                c_names = ['target_net_params', tf.GraphKeys.GLOBAL_VARIABLES]
 
-            for tag in scalar_summary_tags:
-                self.summary_placeholders[tag] = tf.placeholder(tf.float32, None, name=tag.replace(' ', '_') + '_0')
-                self.summary_ops[tag] = tf.summary.scalar(tag, self.summary_placeholders[tag])
+                self.q_next = build_layers(self.s_, c_names, n_l1, n_fc, w_initializer, b_initializer, self.sample_size)
+                # w1_target, w2_target, w3_target, self.q_next = build_layers(self.s_, c_names, n_l1, n_fc, w_initializer, b_initializer)
+                # w1_target, self.q_next = build_layers(self.s_, c_names, n_l1, w_initializer, b_initializer)
 
-        # with tf.variable_scope('training_step'):
-        #     training_step_mse = tf.summary.scalar('mse', self.loss)
-            histogram_summary_tags = ['r_actions']
+            ######
+            w_c_names = 'eval_net_params_summaries'
 
-            for tag in histogram_summary_tags:
-                self.summary_placeholders[tag] = tf.placeholder('float32', None, name=tag.replace(' ', '_') + '_0')
-                self.summary_ops[tag] = tf.summary.histogram(tag, self.summary_placeholders[tag])
+            with tf.variable_scope('summary') as scope:
+                scalar_summary_tags = ['loss_avg', 'e_balance', \
+                                     'q_max', 'q_total', 'epsilon', \
+                                     'sharpe_ratio', 'n_trades', \
+                                     'win', 'win_buy', 'win_sell', \
+                                     'max_win', 'max_lose', 'n_buy', \
+                                     'n_sell', 'reward', 'diff_sharpe']
 
-        # with tf.variable_scope('param'):
+                self.summary_placeholders = {}
+                self.summary_ops = {}
 
-        #     histogram_w_tags = ['l1_w', 'l1_b', 'lout_w', 'lout_b']
-        #
-        #     for tag in histogram_w_tags:
-        #         tf.summary.histogram(tag, self.w[tag], collections = [w_c_names])
+                for tag in scalar_summary_tags:
+                    self.summary_placeholders[tag] = tf.placeholder(tf.float32, None, name=tag.replace(' ', '_') + '_0')
+                    self.summary_ops[tag] = tf.summary.scalar(tag, self.summary_placeholders[tag])
 
-        with tf.variable_scope('Extra'):
+            # with tf.variable_scope('training_step'):
+            #     training_step_mse = tf.summary.scalar('mse', self.loss)
+                histogram_summary_tags = ['r_actions']
 
-            # boltzmann
-            self.temp = tf.placeholder(shape=None, dtype=tf.float32)
-            self.q_dist = tf.nn.softmax(self.q_eval/self.temp)
-            self.action = tf.squeeze(tf.multinomial(tf.log(self.q_dist), 1))
+                for tag in histogram_summary_tags:
+                    self.summary_placeholders[tag] = tf.placeholder('float32', None, name=tag.replace(' ', '_') + '_0')
+                    self.summary_ops[tag] = tf.summary.histogram(tag, self.summary_placeholders[tag])
 
-            # e-greedy
-            # self.action = tf.argmax(self.q_eval, axis=1)
+            # with tf.variable_scope('param'):
 
-        # if self.output_graph:
-        # self.merged = tf.summary.merge([training_step_mse])
-            # self.writer = tf.summary.FileWriter('data/' + self.dir, self.sess.graph)
-        ######
+            #     histogram_w_tags = ['l1_w', 'l1_b', 'lout_w', 'lout_b']
+            #
+            #     for tag in histogram_w_tags:
+            #         tf.summary.histogram(tag, self.w[tag], collections = [w_c_names])
 
-        # self.merged = tf.summary.merge_all()
+            with tf.variable_scope('Extra') as scope:
+
+                # boltzmann
+                self.temp = tf.placeholder(shape=None, dtype=tf.float32)
+                self.q_dist = tf.nn.softmax(self.q_eval/self.temp)
+                self.action = tf.squeeze(tf.multinomial(tf.log(self.q_dist), 1))
+
+                # e-greedy
+                # self.action = tf.argmax(self.q_eval, axis=1)
+
+            # if self.output_graph:
+            # self.merged = tf.summary.merge([training_step_mse])
+                # self.writer = tf.summary.FileWriter('data/' + self.dir, self.sess.graph)
+            ######
+
+            # self.merged = tf.summary.merge_all()
 
     def store_transition(self, s, a, r, s_):
 
@@ -289,18 +301,24 @@ class DeepQNetwork:
         observation = observation[np.newaxis, :]
 
         # boltzmann
-        action = self.sess.run(self.action, feed_dict={self.s: observation, self.sample_size: 1, self.temp: 1 - self.epsilon})
+        # action, q_eval = self.sess.run([self.action, self.q_eval], feed_dict={self.s: observation, self.sample_size: 1, self.temp: 1 - self.epsilon})
         # action = np.random.choice(q_dist[0], p=q_dist[0])
         # action = np.argmax(q_dist[0] == action)
 
         # e-greedy
-        # if np.random.uniform() < self.epsilon:  # choosing action
-            # actions_value = self.sess.run(self.q_eval, feed_dict={self.s: observation})
-            # action = np.argmax(actions_value)
-        # else:
-        #     action = np.random.randint(0, self.n_actions)
+        if np.random.uniform() < self.epsilon:  # choosing action
+            actions_value = self.sess.run(self.q_eval, feed_dict={self.s: observation, self.sample_size: 1})
+            action = np.argmax(actions_value)
+        else:
+            action = np.random.randint(0, self.n_action)
 
-        self.r_actions.append(action)
+        # if not hasattr(self, 'q'):
+        #     self.q = []
+        #     self.running_q = 0
+        # self.running_q = self.running_q * 0.99 + 0.01 * np.max(q_eval)
+        # self.q.append(self.running_q)
+        #
+        # self.r_actions.append(action)
 
         return action
 
@@ -327,45 +345,49 @@ class DeepQNetwork:
             #     batch_memory.append(self.memory[index: index + self.trace_length, :])
             # print(batch_memory.shape)
             # sys.exit(2)
-        # pointer = int(self.n_features * self.n_channels)
+        # pointer = int(self.n_feature * self.n_channel)
 
         length = len(batch_memory)
         s = np.array([batch_memory[i][0]['s'] for i in range(length)])
         # s = batch_memory[:, :pointer]
-        # s = np.reshape(s, (-1, self.n_channels, self.n_features))
+        # s = np.reshape(s, (-1, self.n_channel, self.n_feature))
         # print('s.shape: {}'.format(s.shape))
 
         s_ = np.array([batch_memory[i][0]['s_'] for i in range(length)])
         # s_ = batch_memory[:, -pointer:]
-        # s_ = np.reshape(s_, (-1, self.n_channels, self.n_features))
+        # s_ = np.reshape(s_, (-1, self.n_channel, self.n_feature))
         # print('s_.shape: {}'.format(s_.shape))
 
         q_next, q_eval4next,  = self.sess.run(
             [self.q_next, self.q_eval],
             feed_dict={self.s_: s_, self.s: s_, self.sample_size: self.batch_size})    # next observation
-            # feed_dict={self.s_: batch_memory[:, -self.n_features:],    # next observation
-            #            self.s: batch_memory[:, -self.n_features:],
+            # feed_dict={self.s_: batch_memory[:, -self.n_feature:],    # next observation
+            #            self.s: batch_memory[:, -self.n_feature:],
             #            self.sample_size: self.batch_size})    # next observation
         q_eval = self.sess.run(self.q_eval, {self.s: s, self.sample_size: self.batch_size})
-        # q_eval = self.sess.run(self.q_eval, {self.s: batch_memory[:, :self.n_features], self.sample_size: self.batch_size})
+        # q_eval = self.sess.run(self.q_eval, {self.s: batch_memory[:, :self.n_feature], self.sample_size: self.batch_size})
 
         q_target = q_eval.copy()
 
         batch_index = np.arange(self.batch_size, dtype=np.int32)
         eval_act_index = np.array([batch_memory[i][0]['a'] for i in range(length)], dtype=np.int32)
         # eval_act_index = batch_memory[:, pointer].astype(int)
-        # eval_act_index = batch_memory[:, self.n_features].astype(int)
+        # eval_act_index = batch_memory[:, self.n_feature].astype(int)
         reward = np.array([batch_memory[i][0]['r'] for i in range(length)])
         # reward = batch_memory[:, pointer + 1]
-        # reward = batch_memory[:, self.n_features + 1]
+        # reward = batch_memory[:, self.n_feature + 1]
 
-        q_target[batch_index, eval_act_index] = reward + self.gamma * np.max(q_next, axis=1)
+        max_act4next = np.argmax(q_eval4next, axis=1)        # the action that brings the highest value is evaluated by q_eval
+        selected_q_next = q_next[batch_index, max_act4next]
+
+        # q_target[batch_index, eval_act_index] = reward + self.gamma * np.max(q_next, axis=1)
+        q_target[batch_index, eval_act_index] = reward + self.gamma * selected_q_next
 
         if self.prioritized:
             _, abs_errors, self.cost = self.sess.run([self._train_op, self.abs_errors, self.loss],
                                         feed_dict={self.s: s,
                                         # feed_dict={self.s: batch_memory[:, :pointer],
-                                        #  feed_dict={self.s: batch_memory[:, :self.n_features],
+                                        #  feed_dict={self.s: batch_memory[:, :self.n_feature],
                                                     self.q_target: q_target,
                                                     self.ISWeights: ISWeights,
                                                     self.sample_size: self.batch_size})
@@ -374,7 +396,7 @@ class DeepQNetwork:
                 self.memory.update(idx, abs_errors[i])
         else:
             _, self.cost = self.sess.run([self._train_op, self.loss],
-                                         feed_dict={self.s: batch_memory[:, :self.n_features],
+                                         feed_dict={self.s: batch_memory[:, :self.n_feature],
                                                     self.q_target: q_target,
                                                     self.sample_size: self.batch_size})
 
@@ -472,6 +494,7 @@ class DeepQNetwork:
             try:
                 self.saver = tf.train.Saver()
                 self.saver.restore(self.sess, ckpt.model_checkpoint_path)
+                self.summary_writer.add_session_log(tf.SessionLog(status=SessionLog.STRAT), global_step=step)
                 print('Sess restored successfully: {}'.format(ckpt.model_checkpoint_path))
             except Exception as e:
                 print('Failed to load sess: {}'.format(str(e)))
@@ -485,7 +508,6 @@ class DeepQNetwork:
         else:
             save_path = './data/sess.ckpt'
 
-        self.saver = tf.train.Saver()
         self.saver.save(self.sess, save_path, global_step=self.learn_step_counter)
         print('Saving sess to {}: {}'.format(save_path, self.learn_step_counter))
 
