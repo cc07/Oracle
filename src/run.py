@@ -51,7 +51,7 @@ def run(load_sess=False, output_graph=True):
     n_lookback = 9
     n_channel = 1
 
-    MEMORY_SIZE = 10000
+    MEMORY_SIZE = 50000
     e_greedy_increment = 0.0001
     reward_decay = 0.995
     learning_rate = 0.0001
@@ -120,7 +120,7 @@ def run(load_sess=False, output_graph=True):
             # observation = dataset[0][2:]
             dataset = data_batches[b][0]
             price = price_batches[b][0][2:4]
-            ema = price_batches[b][0][4]
+            ema = price_batches[b][0][5]
             observation = observe_environment(rhythm, goldkeeper, X_batches[b][0], price, dataset)
 
             # print ('total_batch: {}, len(X_train): {}'.format(total_batch, len(X_train)))
@@ -146,7 +146,7 @@ def run(load_sess=False, output_graph=True):
                 try:
                     dataset_ = data_batches[b][i+1] if (i < len(data_batches[b]) - 1) else data_batches[b+1][0]
                     price_ = price_batches[b][i+1][2:4] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0][2:4]
-                    ema_ = price_batches[b][i+1][4] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0][4]
+                    ema_ = price_batches[b][i+1][5] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0][5]
 
                     reward = goldkeeper.get_reward(action, price, position, price_, ema)
 
