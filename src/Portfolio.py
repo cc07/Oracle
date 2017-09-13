@@ -63,6 +63,8 @@ class Portfolio:
         profit_loss = 0
         mid = (price[0] + price[1]) / 2
         trend_incentive = 0.00001 * (self.holding_period ** 0.5)
+        counter_trend_penalty = (price[0] - price[1]) * (abs(self.position) + position)
+        additional_order_penalty = (price[0] - price[1]) * (abs(self.position) + position)
 
         if self.floating_pl > 0:
             incentive = 0.00001 * (self.holding_period ** 0.5)
@@ -98,6 +100,14 @@ class Portfolio:
             profit_loss += (abs(self.position) + position) * trend_incentive
         elif mid < ema and action == 2:
             profit_loss += (abs(self.position) + position) * trend_incentive
+
+        if mid < ema and action == 1:
+            profit_loss += counter_trend_penalty
+        elif mid > ema and action == 2:
+            profit_loss += counter_trend_penalty
+
+        if self.floating_pl < 0 and not action == 0:
+            profit_loss += additional_order_penalty
 
         if self.total_balance + profit_loss > 0:
             log_return = log(self.total_balance + profit_loss) - log(self.total_balance)
