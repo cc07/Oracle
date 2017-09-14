@@ -29,7 +29,7 @@ class DeepQNetwork:
             e_greedy=0.9,
             replace_target_iter=200,
             memory_size=500,
-            batch_size=64,
+            batch_size=32,
             e_greedy_increment=None,
             output_graph=False,
             dueling=True,
@@ -96,34 +96,80 @@ class DeepQNetwork:
     def _build_net(self):
         def build_layers(s, c_names, n_l1, n_fc, w_initializer, b_initializer, sample_size):
 
-            s = tf.reshape(s, [sample_size, self.n_feature, self.n_channel])
+            s = tf.reshape(s, [sample_size, 9, self.n_feature, self.n_channel])
+            n_filter = 32
+            # keep_prob = 1
+
+            # with tf.variable_scope('conv1') as scope:
+            #     # regularizer1 = tf.contrib.layers.l2_regularizer(scale=0.1)
+            #     # conv1 = tf.layers.conv2d(dataset, 64, (8, 8), strides=(1, 1), padding='SAME', kernel_regularizer=regularizer1, activation=None)
+            #     conv1_filter = tf.Variable(tf.truncated_normal([1, 1, self.n_channel, n_filter]))
+            #     # conv1 = tf.layers.conv2d(dataset, 64, (1, 8), strides=(1, 1), padding='SAME', activation=None)
+            #     conv1 = tf.nn.conv2d(s, conv1_filter, strides=[1, 1, 1, 1], padding='SAME')
+            #     # conv1 = tf.contrib.layers.batch_norm(conv1, is_training=is_training, updates_collections=None)
+            #     # conv1 = tf.layers.dropout(conv1, keep_prob, training=is_training, noise_shape=[tf.shape(conv1)[0], 1, tf.shape(conv1)[2], 1])
+            #     # conv1 = tf.layers.max_pooling2d(conv1, 2, (1, 4), padding='SAME')
+            #
+            # with tf.variable_scope('conv2') as scope:
+            #     conv2_filter = tf.Variable(tf.truncated_normal([3, 3, self.n_channel, n_filter]))
+            #     conv2 = tf.nn.conv2d(s, conv2_filter, strides=[1, 1, 1, 1], padding='SAME')
+            #
+            # with tf.variable_scope('conv3') as scope:
+            #     conv3_filter = tf.Variable(tf.truncated_normal([5, 5, self.n_channel, n_filter]))
+            #     conv3 = tf.nn.conv2d(s, conv3_filter, strides=[1, 1, 1, 1], padding='SAME')
+            #
+            # with tf.variable_scope('conv4') as scope:
+            #     conv4 = tf.nn.avg_pool(s, ksize=[1, 3, 3, 1], strides=[1, 1, 1, 1], padding='SAME')
+            #
+            # with tf.variable_scope('concat') as scope:
+            #     fc = tf.concat([conv1, conv2, conv3, conv4], axis=3)
+            #     bias = tf.Variable(tf.truncated_normal([3 * n_filter + self.n_channel]))
+            #     fc = tf.nn.bias_add(fc, bias)
+            #     fc = tf.nn.relu(fc)
+            #     fc = tf.reshape(fc, shape=[sample_size, 9, 8536])
 
             with tf.variable_scope('conv1') as scope:
-                # k1 = tf.get_variable('kernel1', shape=[1, self.n_channel, self.n_feature])
-            #     conv1 = tf.nn.conv1d(s, k1, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-                conv1 = tf.layers.conv1d(s, 64, 1, strides=1, padding='SAME', activation=None)
-                # conv1 = tf.layers.max_pooling1d(conv1, 2, 4, padding='SAME')
-            #
-            with tf.variable_scope('conv2') as scope:
-            #     # k2 = tf.get_variable('kernel2', shape=[1, n_l1, n_l1])
-            #     # conv2 = tf.nn.conv1d(conv1, k2, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-                conv2 = tf.layers.conv1d(s, 64, 3, strides=1, padding='SAME', activation=None)
-                # conv2 = tf.layers.max_pooling1d(conv2, 2, 2, padding='SAME')
-            #
-            with tf.variable_scope('conv3') as scope:
-            # #     k3 = tf.get_variable('kernel3', shape=[1, n_l1, n_fc])
-            # #     fc = tf.nn.conv1d(conv2, k3, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-                conv3 = tf.layers.conv1d(s, 64, 5, strides=1, padding='SAME', activation=None)
-                # conv3 = tf.layers.max_pooling1d(conv2, 2, 1, padding='SAME')
+                conv1_filter = tf.Variable(tf.truncated_normal([1, 1, self.n_channel, n_filter]))
+                conv1 = tf.nn.conv2d(s, conv1_filter, strides=[1, 1, 1, 1], padding='SAME')
+                conv1 = tf.layers.max_pooling2d(conv1, 2, (1, 4), padding='SAME')
+                bias = tf.Variable(tf.truncated_normal([n_filter]))
+                fc = tf.nn.bias_add(conv1, bias)
+                fc = tf.nn.relu(fc)
+                fc = tf.reshape(fc, shape=[sample_size, 9, 704])
 
-            with tf.variable_scope('conv4') as scrope:
-                conv4 = tf.layers.max_pooling1d(s, 3, 1, padding='SAME')
+            with tf.variable_scope('rnn') as scope:
+                cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_l1, state_is_tuple=True)
+                state_in = cell.zero_state(tf.shape(fc)[0], tf.float32)
+                # cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=keep_prob)
+                rnn, state = tf.nn.dynamic_rnn(inputs=fc, cell=cell, dtype=tf.float32, initial_state=state_in)
+                fc = state[1]
+
+            # with tf.variable_scope('conv1') as scope:
+            #     # k1 = tf.get_variable('kernel1', shape=[1, self.n_channel, self.n_feature])
+            # #     conv1 = tf.nn.conv1d(s, k1, stride=2, padding='SAME', use_cudnn_on_gpu=True)
+            #     conv1 = tf.layers.conv1d(s, 64, 1, strides=1, padding='SAME', activation=None)
+            #     # conv1 = tf.layers.max_pooling1d(conv1, 2, 4, padding='SAME')
+            # #
+            # with tf.variable_scope('conv2') as scope:
+            # #     # k2 = tf.get_variable('kernel2', shape=[1, n_l1, n_l1])
+            # #     # conv2 = tf.nn.conv1d(conv1, k2, stride=2, padding='SAME', use_cudnn_on_gpu=True)
+            #     conv2 = tf.layers.conv1d(s, 64, 3, strides=1, padding='SAME', activation=None)
+            #     # conv2 = tf.layers.max_pooling1d(conv2, 2, 2, padding='SAME')
+            # #
+            # with tf.variable_scope('conv3') as scope:
+            # # #     k3 = tf.get_variable('kernel3', shape=[1, n_l1, n_fc])
+            # # #     fc = tf.nn.conv1d(conv2, k3, stride=2, padding='SAME', use_cudnn_on_gpu=True)
+            #     conv3 = tf.layers.conv1d(s, 64, 5, strides=1, padding='SAME', activation=None)
+            #     # conv3 = tf.layers.max_pooling1d(conv2, 2, 1, padding='SAME')
+            #
+            # with tf.variable_scope('conv4') as scrope:
+            #     conv4 = tf.layers.max_pooling1d(s, 3, 1, padding='SAME')
 
             with tf.variable_scope('l1') as scope:
-                fc = tf.concat([conv1, conv2, conv3, conv4], axis=2)
-                fc = tf.reshape(conv3, shape=[sample_size, 5440])
+                # fc = tf.concat([conv1, conv2, conv3, conv4], axis=2)
+                # fc = tf.reshape(conv3, shape=[sample_size, 5632])
                 # w1 = tf.get_variable('w1', shape=[self.n_feature, n_l1], initializer=w_initializer, collections=c_names)
-                w1 = tf.get_variable('w1', shape=[5440, n_l1], initializer=w_initializer, collections=c_names)
+                w1 = tf.get_variable('w1', shape=[n_l1, n_l1], initializer=w_initializer, collections=c_names)
                 b1 = tf.get_variable('b1', shape=[1, n_l1], initializer=b_initializer, collections=c_names)
                 l1 = tf.nn.relu(tf.matmul(fc, w1) + b1)
                 # l1 = tf.nn.dropout(l1, self.keep_prob_l1)
@@ -187,7 +233,7 @@ class DeepQNetwork:
             if self.prioritized:
                 self.ISWeights = tf.placeholder(tf.float32, [None, 1], name='IS_weights')
 
-            self.s = tf.placeholder(tf.float32, shape=(None, self.n_feature), name='s')  # input
+            self.s = tf.placeholder(tf.float32, shape=(None, None, self.n_feature), name='s')  # input
             self.q_target = tf.placeholder(tf.float32, shape=(None, self.n_action), name='Q_target')  # for calculating loss
             self.sample_size = tf.Variable(1, dtype=tf.int32, name='sample_size')
 
@@ -220,7 +266,7 @@ class DeepQNetwork:
                 self._train_op = tf.train.RMSPropOptimizer(learning_rate=self.lr, decay=self.op_decay).minimize(self.loss)
 
             # ------------------ build target_net ------------------
-            self.s_ = tf.placeholder(tf.float32, [None, self.n_feature], name='s_')    # input
+            self.s_ = tf.placeholder(tf.float32, [None, None, self.n_feature], name='s_')    # input
             with tf.variable_scope('target_net'):
                 c_names = ['target_net_params', tf.GraphKeys.GLOBAL_VARIABLES]
 
@@ -236,8 +282,9 @@ class DeepQNetwork:
                                      'q_max', 'q_total', 'epsilon', \
                                      'sharpe_ratio', 'n_trades', \
                                      'win', 'win_buy', 'win_sell', \
-                                     'max_win', 'max_lose', 'n_buy', \
-                                     'n_sell', 'reward', 'diff_sharpe']
+                                     'max_win', 'avg_win', 'max_lose', 'avg_lose', \
+                                     'max_holding_period', 'avg_holding_period', \
+                                     'n_buy', 'n_sell', 'reward', 'diff_sharpe']
 
                 self.summary_placeholders = {}
                 self.summary_ops = {}
@@ -306,7 +353,7 @@ class DeepQNetwork:
         # action = np.argmax(q_dist[0] == action)
 
         # e-greedy
-        if np.random.uniform() < self.epsilon:  # choosing action
+        if np.random.uniform() < self.epsilon and len(observation) == 9:  # choosing action
             actions_value = self.sess.run(self.q_eval, feed_dict={self.s: observation, self.sample_size: 1})
             action = np.argmax(actions_value)
         else:
@@ -446,14 +493,18 @@ class DeepQNetwork:
                 'e_balance': stat['total_balance'],
                 'sharpe_ratio': stat['sharpe_ratio'],
                 'n_trades': stat['n_trades'],
-                'win': float(stat['win']) / float(stat['n_trades']),
+                'win': float(stat['n_win']) / float(stat['n_trades']),
                 'win_buy': float(stat['win_buy']) / float(stat['n_buy']) if int(stat['n_buy']) > 0 else 0,
                 'win_sell': float(stat['win_sell']) / float(stat['n_sell']) if int(stat['n_sell']) > 0 else 0,
                 'n_buy': stat['n_buy'],
                 'n_sell': stat['n_sell'],
                 'max_win': stat['max_win'],
+                'avg_win': float(stat['total_win']) / float(stat['n_win']),
                 'max_lose': stat['max_lose'],
+                'avg_lose': float(stat['total_lose']) / (float(stat['n_trades']) - float(stat['n_win'])),
                 'reward': stat['reward'],
+                'max_holding_period': stat['max_holding_period'],
+                'avg_holding_period': float(stat['total_holding_period']) / float(stat['n_trades']),
                 # 'r_balance': realBalance,
                 'epsilon': self.epsilon,
                 'q_max': self.totalMaxQ,

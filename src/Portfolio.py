@@ -39,7 +39,7 @@ class Portfolio:
         self.holding_period = 1
 
         self.stat = {
-            'win': 0,
+            'n_win': 0,
             'win_buy': 0,
             'win_sell': 0,
             'sharpe_ratio': 0,
@@ -49,7 +49,11 @@ class Portfolio:
             'n_sell': 0,
             'count': 0,
             'max_win': 0,
+            'total_win': 0,
             'max_lose': 0,
+            'total_lose': 0,
+            'max_holding_period': 0,
+            'total_holding_period': 0,
             'reward': 0
         }
 
@@ -58,7 +62,7 @@ class Portfolio:
 
         print ('Initial balance: {}, Position: {}, Order Price: {}'.format(self.balance, self.position, self.order_price))
 
-    def get_reward(self, action, price, position, price_, ema):
+    def get_reward(self, action, price, position, price_, emaFast, emaSlow):
 
         profit_loss = 0
         mid = (price[0] + price[1]) / 2
@@ -80,7 +84,7 @@ class Portfolio:
             profit_loss = 0
         elif action == 1 and self.position > 0: # addtional buy
             # profit_loss = (price[0] - price[1]) * position + self.position * incentive
-            profit_loss = self.position * incentive
+            profit_loss = (self.position + position) * incentive
         elif action == 1 and self.position < 0: # settle buy
             profit_loss = (price[1] - self.order_price) * self.position * (self.holding_period ** 0.5)
         elif action == 2 and self.position == 0: # open sell
@@ -88,26 +92,46 @@ class Portfolio:
             profit_loss = 0
         elif action == 2 and self.position < 0: # addtional sell
             # profit_loss = (price[0] - price[1]) * position + self.position * incentive * -1
-            profit_loss = self.position * incentive * -1
+            profit_loss = (self.position - position) * incentive * -1
         elif action == 2 and self.position > 0: # settle sell
             profit_loss = (price[0] - self.order_price) * self.position * (self.holding_period ** 0.5)
 
-        if mid > ema and action == 0 and self.position > 0:
+        if mid < emaSlow and action == 0 and self.position > 0:
+            profit_loss += (abs(self.position) + position) * trend_incentive * -1
+        elif mid < emaSlow and action == 1:
+            profit_loss += (abs(self.position) + position) * trend_incentive * -1
+        elif mid > emaSlow and action == 0 and self.position < 0:
+            profit_loss += (abs(self.position) + position) * trend_incentive * -1
+        elif mid > emaSlow and action == 2:
+            profit_loss += (abs(self.position) + position) * trend_incentive * -1
+
+        if emaFast > emaSlow and action == 0 and self.position < 0:
+            profit_loss += (abs(self.position) + position) * trend_incentive * -1
+        elif emaFast < emaSlow and action == 0 and self.position > 0:
+            profit_loss += (abs(self.position) + position) * trend_incentive * -1
+        elif emaFast > emaSlow and action == 1:
             profit_loss += (abs(self.position) + position) * trend_incentive
-        elif mid > ema and action == 1:
+        elif emaFast < emaSlow and action == 2:
             profit_loss += (abs(self.position) + position) * trend_incentive
-        elif mid < ema and action == 0 and self.position < 0:
+        elif emaFast > emaSlow and action == 0 and self.position > 0:
             profit_loss += (abs(self.position) + position) * trend_incentive
-        elif mid < ema and action == 2:
+        elif emaFast < emaSlow and action == 0 and self.position < 0:
             profit_loss += (abs(self.position) + position) * trend_incentive
 
-        if mid < ema and action == 1:
+        if mid < emaSlow and action == 1:
             profit_loss += counter_trend_penalty
-        elif mid > ema and action == 2:
+        elif mid > emaSlow and action == 2:
             profit_loss += counter_trend_penalty
 
         if self.floating_pl < 0 and not action == 0:
             profit_loss += additional_order_penalty
+
+        hurdle_return = 0.002 * abs(self.position) * -1
+
+        if self.position > 0 and action == 2:
+            profit_loss += hurdle_return
+        elif self.position < 0 and action == 1:
+            profit_loss += hurdle_return
 
         if self.total_balance + profit_loss > 0:
             log_return = log(self.total_balance + profit_loss) - log(self.total_balance)
@@ -119,7 +143,14 @@ class Portfolio:
         diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
         diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
 
+        self.hist_diff_sharpe_top = diff_sharpe_top
+        self.hist_diff_sharpe_bottom = diff_sharpe_bottom
+
+        self.stat['diff_sharpe'] = diff_sharpe
+
         reward = diff_sharpe
+        self.stat['reward'] += reward
+
         return reward
 
     def book_record(self, price, action, position, price_):
@@ -145,12 +176,12 @@ class Portfolio:
         elif (action == 2 and self.position > 0):
             self.settle_sell(price[0])
 
-        reward = self.update_stat(price_)
+        self.update_stat(price_)
 
-        self.stat['reward'] += reward
+        # self.stat['reward'] += reward
         # print('Reward for action[{}]: {}'.format(action, reward))
 
-        return reward
+        # return reward
 
     def open_buy(self, position, price):
 
@@ -206,14 +237,19 @@ class Portfolio:
         # })
         # print('history: {}'.format(self.history))
         if profit_loss > 0:
-            self.stat['win'] += self.n_order
+            self.stat['n_win'] += self.n_order
             self.stat['max_win'] = max(self.stat['max_win'], profit_loss)
+            self.stat['total_win'] += profit_loss
             if self.position > 0:
                 self.stat['win_buy'] += self.n_order
             else:
                 self.stat['win_sell'] += self.n_order
         else:
             self.stat['max_lose'] = min(self.stat['max_lose'], profit_loss)
+            self.stat['total_lose'] += profit_loss
+
+        self.stat['max_holding_period'] = max(self.stat['max_holding_period'], self.holding_period)
+        self.stat['total_holding_period'] += self.holding_period * self.n_order
         # self.book_order(self.position, price)
 
         # direction = 'Sell' if self.position > 0 else 'Buy'
@@ -278,20 +314,20 @@ class Portfolio:
             self.floating_pl = 0
 
         self.total_balance = self.balance + self.floating_pl
-        episode_return = (self.total_balance - self.hist_balance) / self.hist_balance
+        # episode_return = (self.total_balance - self.hist_balance) / self.hist_balance
 
-        hurdle_return = 0.001 * abs(self.position)
+        # hurdle_return = 0.001 * abs(self.position)
         # print('hurdle: {}'.format(hurdle_return))
-        log_return = log(self.total_balance - hurdle_return) - log(self.hist_balance)
+        # log_return = log(self.total_balance - hurdle_return) - log(self.hist_balance)
 
-        decay = 0.9
-        diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
-        diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
-        diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
-
-        self.hist_diff_sharpe_top = diff_sharpe_top
-        self.hist_diff_sharpe_bottom = diff_sharpe_bottom
-        self.stat['diff_sharpe'] = diff_sharpe
+        # decay = 0.9
+        # diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
+        # diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
+        # diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
+        #
+        # self.hist_diff_sharpe_top = diff_sharpe_top
+        # self.hist_diff_sharpe_bottom = diff_sharpe_bottom
+        # self.stat['diff_sharpe'] = diff_sharpe
 
         # if len(self.hist_profit_loss) > 500:
         #     self.hist_profit_loss.rotate(np.random.randint(0, len(self.hist_profit_loss)))
@@ -342,7 +378,7 @@ class Portfolio:
         #     print('reward is nan, setting its value to 0')
         #     reward = 0
         #
-        return diff_sharpe
+        # return diff_sharpe
 
     def get_holding_status(self):
         if self.position == 0:
