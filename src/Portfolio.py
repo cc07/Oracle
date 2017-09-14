@@ -54,7 +54,8 @@ class Portfolio:
             'total_lose': 0,
             'max_holding_period': 0,
             'total_holding_period': 0,
-            'reward': 0
+            'reward': 0,
+            'diff_sharpe': 0
         }
 
         self.order = deque()
@@ -138,17 +139,18 @@ class Portfolio:
         else:
             log_return = log(self.total_balance) * -1
 
-        decay = 0.9
-        diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
-        diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
-        diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
+        # decay = 0.9
+        # diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
+        # diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
+        # diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
+        #
+        # self.hist_diff_sharpe_top = diff_sharpe_top
+        # self.hist_diff_sharpe_bottom = diff_sharpe_bottom
+        #
+        # self.stat['diff_sharpe'] = diff_sharpe
 
-        self.hist_diff_sharpe_top = diff_sharpe_top
-        self.hist_diff_sharpe_bottom = diff_sharpe_bottom
-
-        self.stat['diff_sharpe'] = diff_sharpe
-
-        reward = diff_sharpe
+        # reward = diff_sharpe
+        reward = log_return
         self.stat['reward'] += reward
 
         return reward

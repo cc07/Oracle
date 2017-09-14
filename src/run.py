@@ -56,7 +56,7 @@ def run(load_sess=False, output_graph=True):
     n_channel = 1
 
     MEMORY_SIZE = 50000
-    e_greedy_increment = 0.0001
+    e_greedy_increment = 0.001
     reward_decay = 0.995
     learning_rate = 0.0001
     replace_target_iter = 20000
@@ -106,6 +106,8 @@ def run(load_sess=False, output_graph=True):
     price_batches = np.array_split(price_train, total_batch)
     X_batches = np.array_split(X_train, total_batch)
 
+    terminated = False
+
     for epoch in range(epoches):
 
         print('Epoch: {}'.format(epoch))
@@ -117,10 +119,13 @@ def run(load_sess=False, output_graph=True):
         env = deque([], maxlen=9)
         warm_up = 0
 
-        for b in range(randint(0, total_batch - 50), total_batch):
+        start = randint(0, total_batch - 50) if terminated == True else 0
+
+        for b in range(start, total_batch):
 
             if goldkeeper.balance < 200:
                 print('Balance less than 200, starting another epoch')
+                terminated = True
                 break;
 
             # dataset = X_batches[b]
@@ -174,6 +179,7 @@ def run(load_sess=False, output_graph=True):
                 except Exception as e:
                     print(str(e))
                     print('Error b: {}, max_b: {}, i: {}, length: {}, step: {}'.format(b, total_batch, i, len(X_train), step))
+                    terminated = False
                     break
 
                 if warm_up > 9:

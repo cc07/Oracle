@@ -57,8 +57,8 @@ class DeepQNetwork:
         self.output_graph = output_graph
 
         self.keep_prob_l1 = 0.8
-        self.l1_dim = 64
-        self.fc_dim = 32
+        self.l1_dim = 32
+        self.fc_dim = 16
         self.trace_length = 4
         # self.learn_step_counter = 1
         self.cost = 0
@@ -100,42 +100,48 @@ class DeepQNetwork:
             n_filter = 32
             # keep_prob = 1
 
-            # with tf.variable_scope('conv1') as scope:
-            #     # regularizer1 = tf.contrib.layers.l2_regularizer(scale=0.1)
-            #     # conv1 = tf.layers.conv2d(dataset, 64, (8, 8), strides=(1, 1), padding='SAME', kernel_regularizer=regularizer1, activation=None)
-            #     conv1_filter = tf.Variable(tf.truncated_normal([1, 1, self.n_channel, n_filter]))
-            #     # conv1 = tf.layers.conv2d(dataset, 64, (1, 8), strides=(1, 1), padding='SAME', activation=None)
-            #     conv1 = tf.nn.conv2d(s, conv1_filter, strides=[1, 1, 1, 1], padding='SAME')
-            #     # conv1 = tf.contrib.layers.batch_norm(conv1, is_training=is_training, updates_collections=None)
-            #     # conv1 = tf.layers.dropout(conv1, keep_prob, training=is_training, noise_shape=[tf.shape(conv1)[0], 1, tf.shape(conv1)[2], 1])
-            #     # conv1 = tf.layers.max_pooling2d(conv1, 2, (1, 4), padding='SAME')
-            #
-            # with tf.variable_scope('conv2') as scope:
-            #     conv2_filter = tf.Variable(tf.truncated_normal([3, 3, self.n_channel, n_filter]))
-            #     conv2 = tf.nn.conv2d(s, conv2_filter, strides=[1, 1, 1, 1], padding='SAME')
-            #
-            # with tf.variable_scope('conv3') as scope:
-            #     conv3_filter = tf.Variable(tf.truncated_normal([5, 5, self.n_channel, n_filter]))
-            #     conv3 = tf.nn.conv2d(s, conv3_filter, strides=[1, 1, 1, 1], padding='SAME')
-            #
-            # with tf.variable_scope('conv4') as scope:
-            #     conv4 = tf.nn.avg_pool(s, ksize=[1, 3, 3, 1], strides=[1, 1, 1, 1], padding='SAME')
-            #
-            # with tf.variable_scope('concat') as scope:
-            #     fc = tf.concat([conv1, conv2, conv3, conv4], axis=3)
-            #     bias = tf.Variable(tf.truncated_normal([3 * n_filter + self.n_channel]))
-            #     fc = tf.nn.bias_add(fc, bias)
-            #     fc = tf.nn.relu(fc)
-            #     fc = tf.reshape(fc, shape=[sample_size, 9, 8536])
-
             with tf.variable_scope('conv1') as scope:
                 conv1_filter = tf.Variable(tf.truncated_normal([1, 1, self.n_channel, n_filter]))
                 conv1 = tf.nn.conv2d(s, conv1_filter, strides=[1, 1, 1, 1], padding='SAME')
                 conv1 = tf.layers.max_pooling2d(conv1, 2, (1, 4), padding='SAME')
+
+            with tf.variable_scope('conv2') as scope:
+                conv2_filter = tf.Variable(tf.truncated_normal([3, 3, self.n_channel, n_filter]))
+                conv2 = tf.nn.conv2d(s, conv2_filter, strides=[1, 1, 1, 1], padding='SAME')
+                conv2 = tf.layers.max_pooling2d(conv2, 2, (1, 4), padding='SAME')
+
+            with tf.variable_scope('conv3') as scope:
+                conv3_filter = tf.Variable(tf.truncated_normal([5, 5, self.n_channel, n_filter]))
+                conv3 = tf.nn.conv2d(s, conv3_filter, strides=[1, 1, 1, 1], padding='SAME')
+                conv3 = tf.layers.max_pooling2d(conv3, 2, (1, 4), padding='SAME')
+
+            with tf.variable_scope('conv4') as scope:
+                conv4 = tf.nn.avg_pool(s, ksize=[1, 3, 3, 1], strides=[1, 1, 1, 1], padding='SAME')
+                conv4 = tf.layers.max_pooling2d(conv4, 2, (1, 4), padding='SAME')
+
+            with tf.variable_scope('concat') as scope:
+                inception1 = tf.concat([conv1, conv2, conv3, conv4], axis=3)
+                bias = tf.Variable(tf.truncated_normal([3 * n_filter + self.n_channel]))
+                inception1 = tf.nn.bias_add(inception1, bias)
+                inception1 = tf.nn.relu(inception1)
+
+            with tf.variable_scope('conv5') as scope:
+                conv5_filter = tf.Variable(tf.truncated_normal([1, 1, 3 * n_filter + self.n_channel, n_filter]))
+                conv5 = tf.nn.conv2d(inception1, conv5_filter, strides=[1, 1, 1, 1], padding='SAME')
+                conv5 = tf.layers.max_pooling2d(conv5, 2, (1, 4), padding='SAME')
                 bias = tf.Variable(tf.truncated_normal([n_filter]))
-                fc = tf.nn.bias_add(conv1, bias)
+                fc = tf.nn.bias_add(conv5, bias)
                 fc = tf.nn.relu(fc)
-                fc = tf.reshape(fc, shape=[sample_size, 9, 704])
+                fc = tf.reshape(fc, shape=[sample_size, 9, 192])
+
+            # with tf.variable_scope('conv1') as scope:
+            #     conv1_filter = tf.Variable(tf.truncated_normal([1, 1, self.n_channel, n_filter]))
+            #     conv1 = tf.nn.conv2d(s, conv1_filter, strides=[1, 1, 1, 1], padding='SAME')
+            #     conv1 = tf.layers.max_pooling2d(conv1, 2, (1, 4, 4, 1), padding='SAME')
+            #     bias = tf.Variable(tf.truncated_normal([n_filter]))
+            #     fc = tf.nn.bias_add(conv1, bias)
+            #     fc = tf.nn.relu(fc)
+            #     fc = tf.reshape(fc, shape=[sample_size, 9, 704])
 
             with tf.variable_scope('rnn') as scope:
                 cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_l1, state_is_tuple=True)
