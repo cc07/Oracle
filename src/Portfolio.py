@@ -76,6 +76,10 @@ class Portfolio:
         elif action == 2 and self.position > 0: # settle sell
             profit_loss = (price[0] - self.order_price) * self.position * (self.holding_period ** 0.5)
 
+        # holding incentive for profitable position
+        if self.floating_pl > abs(self.position) * 0.001:
+            profit_loss += 0.00001 * (self.holding_period ** 0.5)
+
         # if self.floating_pl > abs(self.position) * 0.001:
         #     incentive = 0.00001 * (self.holding_period ** 0.5)
         # else:

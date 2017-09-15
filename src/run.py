@@ -153,8 +153,8 @@ def run(load_sess=False, output_graph=True):
                 if goldkeeper.balance < 200 or (i == len(X_batches[b]) and b == total_batch):
                     break;
 
-                # action = oracle.choose_action(observation)
-                action = oracle.choose_action(state)
+                action = oracle.choose_action(observation)
+                # action = oracle.choose_action(state)
 
                 leverage_factor = goldkeeper.total_balance / initial_balance
                 position = int(max(0, min(position_base * leverage_factor, (goldkeeper.total_balance / capacity_factor) - abs(goldkeeper.position))))
