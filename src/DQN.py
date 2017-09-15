@@ -96,43 +96,70 @@ class DeepQNetwork:
     def _build_net(self):
         def build_layers(s, c_names, n_l1, n_fc, w_initializer, b_initializer, sample_size):
 
-            s = tf.reshape(s, [sample_size, 9, self.n_feature, self.n_channel])
-            n_filter = 32
+            s = tf.reshape(s, [sample_size, self.n_feature, self.n_channel])
+            n_filter = 64
             # keep_prob = 1
 
             with tf.variable_scope('conv1') as scope:
-                conv1_filter = tf.Variable(tf.truncated_normal([1, 1, self.n_channel, n_filter]))
-                conv1 = tf.nn.conv2d(s, conv1_filter, strides=[1, 1, 1, 1], padding='SAME')
-                conv1 = tf.layers.max_pooling2d(conv1, 2, (1, 4), padding='SAME')
-
+                # k1 = tf.get_variable('kernel1', shape=[1, self.n_channel, self.n_feature])
+            #     conv1 = tf.nn.conv1d(s, k1, stride=2, padding='SAME', use_cudnn_on_gpu=True)
+                conv1 = tf.layers.conv1d(s, n_filter, 1, strides=1, padding='SAME', activation=None)
+                # conv1 = tf.layers.max_pooling1d(conv1, 2, 4, padding='SAME')
+            #
             with tf.variable_scope('conv2') as scope:
-                conv2_filter = tf.Variable(tf.truncated_normal([3, 3, self.n_channel, n_filter]))
-                conv2 = tf.nn.conv2d(s, conv2_filter, strides=[1, 1, 1, 1], padding='SAME')
-                conv2 = tf.layers.max_pooling2d(conv2, 2, (1, 4), padding='SAME')
-
+            #     # k2 = tf.get_variable('kernel2', shape=[1, n_l1, n_l1])
+            #     # conv2 = tf.nn.conv1d(conv1, k2, stride=2, padding='SAME', use_cudnn_on_gpu=True)
+                conv2 = tf.layers.conv1d(s, n_filter, 3, strides=1, padding='SAME', activation=None)
+                # conv2 = tf.layers.max_pooling1d(conv2, 2, 2, padding='SAME')
+            #
             with tf.variable_scope('conv3') as scope:
-                conv3_filter = tf.Variable(tf.truncated_normal([5, 5, self.n_channel, n_filter]))
-                conv3 = tf.nn.conv2d(s, conv3_filter, strides=[1, 1, 1, 1], padding='SAME')
-                conv3 = tf.layers.max_pooling2d(conv3, 2, (1, 4), padding='SAME')
+            # #     k3 = tf.get_variable('kernel3', shape=[1, n_l1, n_fc])
+            # #     fc = tf.nn.conv1d(conv2, k3, stride=2, padding='SAME', use_cudnn_on_gpu=True)
+                conv3 = tf.layers.conv1d(s, n_filter, 5, strides=1, padding='SAME', activation=None)
+                # conv3 = tf.layers.max_pooling1d(conv2, 2, 1, padding='SAME')
 
-            with tf.variable_scope('conv4') as scope:
-                conv4 = tf.nn.avg_pool(s, ksize=[1, 3, 3, 1], strides=[1, 1, 1, 1], padding='SAME')
-                conv4 = tf.layers.max_pooling2d(conv4, 2, (1, 4), padding='SAME')
+            with tf.variable_scope('conv4') as scrope:
+                conv4 = tf.layers.max_pooling1d(s, 3, 1, padding='SAME')
+
+            # with tf.variable_scope('conv1') as scope:
+            #     conv1_filter = tf.Variable(tf.truncated_normal([1, 1, self.n_channel, n_filter]))
+            #     conv1 = tf.nn.conv2d(s, conv1_filter, strides=[1, 1, 1, 1], padding='SAME')
+            #     conv1 = tf.layers.max_pooling2d(conv1, 2, (1, 4), padding='SAME')
+            #
+            # with tf.variable_scope('conv2') as scope:
+            #     conv2_filter = tf.Variable(tf.truncated_normal([3, 3, self.n_channel, n_filter]))
+            #     conv2 = tf.nn.conv2d(s, conv2_filter, strides=[1, 1, 1, 1], padding='SAME')
+            #     conv2 = tf.layers.max_pooling2d(conv2, 2, (1, 4), padding='SAME')
+            #
+            # with tf.variable_scope('conv3') as scope:
+            #     conv3_filter = tf.Variable(tf.truncated_normal([5, 5, self.n_channel, n_filter]))
+            #     conv3 = tf.nn.conv2d(s, conv3_filter, strides=[1, 1, 1, 1], padding='SAME')
+            #     conv3 = tf.layers.max_pooling2d(conv3, 2, (1, 4), padding='SAME')
+            #
+            # with tf.variable_scope('conv4') as scope:
+            #     conv4 = tf.nn.avg_pool(s, ksize=[1, 3, 3, 1], strides=[1, 1, 1, 1], padding='SAME')
+            #     conv4 = tf.layers.max_pooling2d(conv4, 2, (1, 4), padding='SAME')
 
             with tf.variable_scope('concat') as scope:
-                inception1 = tf.concat([conv1, conv2, conv3, conv4], axis=3)
+                inception1 = tf.concat([conv1, conv2, conv3, conv4], axis=2)
                 bias = tf.Variable(tf.truncated_normal([3 * n_filter + self.n_channel]))
                 inception1 = tf.nn.bias_add(inception1, bias)
                 inception1 = tf.nn.relu(inception1)
+                # inception1 = tf.reshape(inception1, shape=[sample_size, 9, 1078])
 
             with tf.variable_scope('conv5') as scope:
-                conv5_filter = tf.Variable(tf.truncated_normal([1, 1, 3 * n_filter + self.n_channel, n_filter]))
-                conv5 = tf.nn.conv2d(inception1, conv5_filter, strides=[1, 1, 1, 1], padding='SAME')
-                conv5 = tf.layers.max_pooling2d(conv5, 2, (1, 4), padding='SAME')
+                conv5 = tf.layers.conv1d(inception1, n_filter, 1, strides=1, padding='SAME', activation=None)
                 bias = tf.Variable(tf.truncated_normal([n_filter]))
-                fc = tf.nn.bias_add(conv5, bias)
-                fc = tf.nn.relu(fc)
-                fc = tf.reshape(fc, shape=[sample_size, 9, 192])
+                conv5 = tf.nn.bias_add(conv5, bias)
+                conv5 = tf.nn.relu(conv5)
+                conv5 = tf.layers.max_pooling1d(conv5, 3, 4, padding='SAME')
+                fc = tf.reshape(conv5, shape=[sample_size, 1408])
+
+            # with tf.variable_scope('dense') as scope:
+            #     W = tf.get_variable(name='weights', initializer=tf.contrib.layers.variance_scaling_initializer(), shape=[1078, n_filter])
+            #     z = tf.einsum('ijk,kl->ijl', inception1, W)
+            #     b = tf.get_variable(name='biases', initializer=tf.constant_initializer(), shape=[n_filter])
+            #     fc = z + b
 
             # with tf.variable_scope('conv1') as scope:
             #     conv1_filter = tf.Variable(tf.truncated_normal([1, 1, self.n_channel, n_filter]))
@@ -143,69 +170,24 @@ class DeepQNetwork:
             #     fc = tf.nn.relu(fc)
             #     fc = tf.reshape(fc, shape=[sample_size, 9, 704])
 
-            with tf.variable_scope('rnn') as scope:
-                cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_l1, state_is_tuple=True)
-                state_in = cell.zero_state(tf.shape(fc)[0], tf.float32)
-                # cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=keep_prob)
-                rnn, state = tf.nn.dynamic_rnn(inputs=fc, cell=cell, dtype=tf.float32, initial_state=state_in)
-                fc = state[1]
+            # with tf.variable_scope('rnn') as scope:
+            #     cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_l1, state_is_tuple=True)
+            #     state_in = cell.zero_state(tf.shape(fc)[0], tf.float32)
+            #     # cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=keep_prob)
+            #     rnn, state = tf.nn.dynamic_rnn(inputs=fc, cell=cell, dtype=tf.float32, initial_state=state_in)
+            #     fc = state[1]
 
-            # with tf.variable_scope('conv1') as scope:
-            #     # k1 = tf.get_variable('kernel1', shape=[1, self.n_channel, self.n_feature])
-            # #     conv1 = tf.nn.conv1d(s, k1, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-            #     conv1 = tf.layers.conv1d(s, 64, 1, strides=1, padding='SAME', activation=None)
-            #     # conv1 = tf.layers.max_pooling1d(conv1, 2, 4, padding='SAME')
-            # #
-            # with tf.variable_scope('conv2') as scope:
-            # #     # k2 = tf.get_variable('kernel2', shape=[1, n_l1, n_l1])
-            # #     # conv2 = tf.nn.conv1d(conv1, k2, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-            #     conv2 = tf.layers.conv1d(s, 64, 3, strides=1, padding='SAME', activation=None)
-            #     # conv2 = tf.layers.max_pooling1d(conv2, 2, 2, padding='SAME')
-            # #
-            # with tf.variable_scope('conv3') as scope:
-            # # #     k3 = tf.get_variable('kernel3', shape=[1, n_l1, n_fc])
-            # # #     fc = tf.nn.conv1d(conv2, k3, stride=2, padding='SAME', use_cudnn_on_gpu=True)
-            #     conv3 = tf.layers.conv1d(s, 64, 5, strides=1, padding='SAME', activation=None)
-            #     # conv3 = tf.layers.max_pooling1d(conv2, 2, 1, padding='SAME')
-            #
-            # with tf.variable_scope('conv4') as scrope:
-            #     conv4 = tf.layers.max_pooling1d(s, 3, 1, padding='SAME')
+
 
             with tf.variable_scope('l1') as scope:
-                # fc = tf.concat([conv1, conv2, conv3, conv4], axis=2)
-                # fc = tf.reshape(conv3, shape=[sample_size, 5632])
-                # w1 = tf.get_variable('w1', shape=[self.n_feature, n_l1], initializer=w_initializer, collections=c_names)
-                w1 = tf.get_variable('w1', shape=[n_l1, n_l1], initializer=w_initializer, collections=c_names)
+                w1 = tf.get_variable('w1', shape=[1408, n_l1], initializer=w_initializer, collections=c_names)
                 b1 = tf.get_variable('b1', shape=[1, n_l1], initializer=b_initializer, collections=c_names)
                 l1 = tf.nn.relu(tf.matmul(fc, w1) + b1)
-                # l1 = tf.nn.dropout(l1, self.keep_prob_l1)
 
             with tf.variable_scope('l2') as scope:
                 w2 = tf.get_variable('w2', shape=[n_l1, n_fc], initializer=w_initializer, collections=c_names)
                 b2 = tf.get_variable('b2', shape=[1, n_fc], initializer=b_initializer, collections=c_names)
                 fc = tf.nn.relu(tf.matmul(l1, w2) + b2)
-                # fc = tf.nn.dropout(l2, self.keep_prob_l1)
-            #
-            # with tf.variable_scope('l3') as scope:
-            #     w3 = tf.get_variable('w3', shape=[n_l1, n_fc], initializer=w_initializer, collections=c_names)
-            #     b3 = tf.get_variable('b3', shape=[1, n_fc], initializer=b_initializer, collections=c_names)
-            #     fc = tf.nn.relu(tf.matmul(l2, w3) + b3)
-
-            # with tf.variable_scope('rnn') as scope:
-            #     fc = tf.reshape(conv3, shape=[sample_size, 1, 64 * 27])
-            #     # cell = tf.nn.rnn_cell.LSTMCell(num_units=n_l1, initializer=tf.contrib.layers.xavier_initializer, activation=tf.nn.relu)
-            #     cell = tf.contrib.rnn.BasicLSTMCell(num_units=n_fc, state_is_tuple=True, activation=tf.nn.relu)
-            #     state_in = cell.zero_state(tf.shape(fc)[0], tf.float32)
-            #     # cell = tf.nn.rnn_cell.DropoutWrapper(cell, output_keep_prob=0.8)
-            #     rnn, state = tf.nn.dynamic_rnn(inputs=fc, cell=cell, dtype=tf.float32, initial_state=state_in)
-            #     fc = tf.reshape(rnn, shape=[-1, n_fc])
-                # fc = rnn[-1]
-
-            # with tf.variable_scope('fc') as scope:
-            #     fc = tf.reshape(conv3, shape=[tf.shape(conv3)[0], 64 * self.n_feature / 4])
-            #     w = tf.get_variable('w', shape=[64 * self.n_feature / 4, n_fc], initializer=w_initializer, collections=c_names)
-            #     b = tf.get_variable('b', shape=[1, n_fc], initializer=b_initializer, collections=c_names)
-            #     fc = tf.nn.relu(tf.matmul(fc, w) + b)
 
             if self.dueling:
                 # Dueling DQN
@@ -239,7 +221,7 @@ class DeepQNetwork:
             if self.prioritized:
                 self.ISWeights = tf.placeholder(tf.float32, [None, 1], name='IS_weights')
 
-            self.s = tf.placeholder(tf.float32, shape=(None, None, self.n_feature), name='s')  # input
+            self.s = tf.placeholder(tf.float32, shape=(None, self.n_feature), name='s')  # input
             self.q_target = tf.placeholder(tf.float32, shape=(None, self.n_action), name='Q_target')  # for calculating loss
             self.sample_size = tf.Variable(1, dtype=tf.int32, name='sample_size')
 
@@ -272,7 +254,7 @@ class DeepQNetwork:
                 self._train_op = tf.train.RMSPropOptimizer(learning_rate=self.lr, decay=self.op_decay).minimize(self.loss)
 
             # ------------------ build target_net ------------------
-            self.s_ = tf.placeholder(tf.float32, [None, None, self.n_feature], name='s_')    # input
+            self.s_ = tf.placeholder(tf.float32, [None, self.n_feature], name='s_')    # input
             with tf.variable_scope('target_net'):
                 c_names = ['target_net_params', tf.GraphKeys.GLOBAL_VARIABLES]
 

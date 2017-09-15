@@ -56,10 +56,10 @@ def run(load_sess=False, output_graph=True):
     n_channel = 1
 
     MEMORY_SIZE = 50000
-    e_greedy_increment = 0.001
-    reward_decay = 0.995
+    e_greedy_increment = 0.0001
+    reward_decay = 0.99
     learning_rate = 0.0001
-    replace_target_iter = 20000
+    replace_target_iter = 5000
     dueling = True
     prioritized = True
 
@@ -72,7 +72,7 @@ def run(load_sess=False, output_graph=True):
     history = []
 
     initial_balance = 1000
-    position_base = 1000
+    position_base = 5000
     capacity_factor = 0.1
     leverage_factor = 1
 
@@ -116,8 +116,8 @@ def run(load_sess=False, output_graph=True):
         action = None
         state = np.array([])
         state_ = np.array([])
-        env = deque([], maxlen=9)
-        warm_up = 0
+        # env = deque([], maxlen=9)
+        # warm_up = 0
 
         start = randint(0, total_batch - 50) if terminated == True else 0
 
@@ -136,7 +136,7 @@ def run(load_sess=False, output_graph=True):
             emaFast = price_batches[b][0][4]
             emaSlow = price_batches[b][0][5]
             observation = observe_environment(rhythm, goldkeeper, X_batches[b][0], price, dataset, emaFast, emaSlow)
-            env.append(observation)
+            # env.append(observation)
 
             # print ('total_batch: {}, len(X_train): {}'.format(total_batch, len(X_train)))
             # print ('len(X_batches[b]): {}'.format(len(X_batches[b])))
@@ -172,9 +172,9 @@ def run(load_sess=False, output_graph=True):
 
                     observation_ = X_batches[b][i+1] if (i < len(X_batches[b]) - 1) else X_batches[b+1][0]
                     observation_ = observe_environment(rhythm, goldkeeper, observation_, price_, dataset_, emaFast_, emaSlow_)
-                    env.append(observation_)
+                    # env.append(observation_)
 
-                    state_ = np.array(list(env))
+                    # state_ = np.array(list(env))
 
                 except Exception as e:
                     print(str(e))
@@ -182,17 +182,17 @@ def run(load_sess=False, output_graph=True):
                     terminated = False
                     break
 
-                if warm_up > 9:
-                    oracle.store_transition(state, action, reward, state_)
-                # oracle.store_transition(observation, action, reward, observation_)
+                # if warm_up > 9:
+                #     oracle.store_transition(state, action, reward, state_)
+                oracle.store_transition(observation, action, reward, observation_)
 
                 dataset = dataset_
                 price = price_
                 emaFast = emaFast_
                 emaSlow = emaSlow_
                 observation = observation_
-                state = state_
-                warm_up += 1
+                # state = state_
+                # warm_up += 1
 
                 if step > MEMORY_SIZE and step % learn_interval == 0:
                     oracle.learn()

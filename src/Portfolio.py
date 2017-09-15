@@ -71,7 +71,7 @@ class Portfolio:
         counter_trend_penalty = (price[0] - price[1]) * (abs(self.position) + position)
         additional_order_penalty = (price[0] - price[1]) * (abs(self.position) + position)
 
-        if self.floating_pl > 0:
+        if self.floating_pl > abs(self.position) * 0.001:
             incentive = 0.00001 * (self.holding_period ** 0.5)
         else:
             incentive = 0
@@ -139,18 +139,18 @@ class Portfolio:
         else:
             log_return = log(self.total_balance) * -1
 
-        # decay = 0.9
-        # diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
-        # diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
-        # diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
-        #
-        # self.hist_diff_sharpe_top = diff_sharpe_top
-        # self.hist_diff_sharpe_bottom = diff_sharpe_bottom
-        #
-        # self.stat['diff_sharpe'] = diff_sharpe
+        decay = 0.9
+        diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
+        diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
+        diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
 
-        # reward = diff_sharpe
-        reward = log_return
+        self.hist_diff_sharpe_top = diff_sharpe_top
+        self.hist_diff_sharpe_bottom = diff_sharpe_bottom
+
+        self.stat['diff_sharpe'] = diff_sharpe
+
+        reward = diff_sharpe
+        # reward = log_return
         self.stat['reward'] += reward
 
         return reward
@@ -165,20 +165,20 @@ class Portfolio:
         if (abs(self.position) > 0):
             self.holding_period += 1
 
-        if (action == 1 and self.position >= 0):
+        if (action == 1 and self.position >= 0 and position > 0):
             self.stat['n_buy'] += 1
             self.stat['n_trades'] += 1
             self.open_buy(position, price[1])
         elif (action == 1 and self.position < 0):
             self.settle_buy(price[1])
-        elif (action == 2 and self.position <= 0):
+        elif (action == 2 and self.position <= 0 and position > 0):
             self.stat['n_sell'] += 1
             self.stat['n_trades'] += 1
             self.open_sell(position, price[0])
         elif (action == 2 and self.position > 0):
             self.settle_sell(price[0])
 
-        self.update_stat(price_)
+        self.update_stat(price)
 
         # self.stat['reward'] += reward
         # print('Reward for action[{}]: {}'.format(action, reward))
