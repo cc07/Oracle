@@ -29,7 +29,7 @@ class DeepQNetwork:
             e_greedy=0.9,
             replace_target_iter=200,
             memory_size=500,
-            batch_size=32,
+            batch_size=64,
             e_greedy_increment=None,
             output_graph=False,
             dueling=True,
@@ -57,8 +57,8 @@ class DeepQNetwork:
         self.output_graph = output_graph
 
         self.keep_prob_l1 = 0.8
-        self.l1_dim = 32
-        self.fc_dim = 16
+        self.l1_dim = 64
+        self.fc_dim = 32
         self.trace_length = 4
         # self.learn_step_counter = 1
         self.cost = 0

@@ -71,67 +71,77 @@ class Portfolio:
         counter_trend_penalty = (price[0] - price[1]) * (abs(self.position) + position)
         additional_order_penalty = (price[0] - price[1]) * (abs(self.position) + position)
 
-        if self.floating_pl > abs(self.position) * 0.001:
-            incentive = 0.00001 * (self.holding_period ** 0.5)
-        else:
-            incentive = 0
-
-        if action == 0 and self.position > 0: # hold & buy
-            profit_loss = self.position * incentive
-        elif action == 0 and self.position < 0: # hold & sell
-            profit_loss = self.position * incentive * -1
-        elif action == 1 and self.position == 0: # open buy
-            # profit_loss = (price[0] - price[1]) * position
-            profit_loss = 0
-        elif action == 1 and self.position > 0: # addtional buy
-            # profit_loss = (price[0] - price[1]) * position + self.position * incentive
-            profit_loss = (self.position + position) * incentive
-        elif action == 1 and self.position < 0: # settle buy
+        if action == 1 and self.position < 0: # settle buy
             profit_loss = (price[1] - self.order_price) * self.position * (self.holding_period ** 0.5)
-        elif action == 2 and self.position == 0: # open sell
-            # profit_loss = (price[0] - price[1]) * position
-            profit_loss = 0
-        elif action == 2 and self.position < 0: # addtional sell
-            # profit_loss = (price[0] - price[1]) * position + self.position * incentive * -1
-            profit_loss = (self.position - position) * incentive * -1
         elif action == 2 and self.position > 0: # settle sell
             profit_loss = (price[0] - self.order_price) * self.position * (self.holding_period ** 0.5)
 
-        if mid < emaSlow and action == 0 and self.position > 0:
-            profit_loss += (abs(self.position) + position) * trend_incentive * -1
-        elif mid < emaSlow and action == 1:
-            profit_loss += (abs(self.position) + position) * trend_incentive * -1
-        elif mid > emaSlow and action == 0 and self.position < 0:
-            profit_loss += (abs(self.position) + position) * trend_incentive * -1
-        elif mid > emaSlow and action == 2:
-            profit_loss += (abs(self.position) + position) * trend_incentive * -1
-
-        if emaFast > emaSlow and action == 0 and self.position < 0:
-            profit_loss += (abs(self.position) + position) * trend_incentive * -1
-        elif emaFast < emaSlow and action == 0 and self.position > 0:
-            profit_loss += (abs(self.position) + position) * trend_incentive * -1
-        elif emaFast > emaSlow and action == 1:
-            profit_loss += (abs(self.position) + position) * trend_incentive
-        elif emaFast < emaSlow and action == 2:
-            profit_loss += (abs(self.position) + position) * trend_incentive
-        elif emaFast > emaSlow and action == 0 and self.position > 0:
-            profit_loss += (abs(self.position) + position) * trend_incentive
-        elif emaFast < emaSlow and action == 0 and self.position < 0:
-            profit_loss += (abs(self.position) + position) * trend_incentive
-
-        if mid < emaSlow and action == 1:
-            profit_loss += counter_trend_penalty
-        elif mid > emaSlow and action == 2:
-            profit_loss += counter_trend_penalty
-
-        if self.floating_pl < 0 and not action == 0:
-            profit_loss += additional_order_penalty
+        # if self.floating_pl > abs(self.position) * 0.001:
+        #     incentive = 0.00001 * (self.holding_period ** 0.5)
+        # else:
+        #     incentive = 0
+        #
+        # if action == 0 and self.position > 0: # hold & buy
+        #     profit_loss = self.position * incentive
+        # elif action == 0 and self.position < 0: # hold & sell
+        #     profit_loss = self.position * incentive * -1
+        # elif action == 1 and self.position == 0: # open buy
+        #     # profit_loss = (price[0] - price[1]) * position
+        #     profit_loss = 0
+        # elif action == 1 and self.position > 0: # addtional buy
+        #     # profit_loss = (price[0] - price[1]) * position + self.position * incentive
+        #     profit_loss = (self.position + position) * incentive
+        # elif action == 1 and self.position < 0: # settle buy
+        #     profit_loss = (price[1] - self.order_price) * self.position * (self.holding_period ** 0.5)
+        # elif action == 2 and self.position == 0: # open sell
+        #     # profit_loss = (price[0] - price[1]) * position
+        #     profit_loss = 0
+        # elif action == 2 and self.position < 0: # addtional sell
+        #     # profit_loss = (price[0] - price[1]) * position + self.position * incentive * -1
+        #     profit_loss = (self.position - position) * incentive * -1
+        # elif action == 2 and self.position > 0: # settle sell
+        #     profit_loss = (price[0] - self.order_price) * self.position * (self.holding_period ** 0.5)
+        #
+        # if mid < emaSlow and action == 0 and self.position > 0:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
+        # elif mid < emaSlow and action == 1:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
+        # elif mid > emaSlow and action == 0 and self.position < 0:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
+        # elif mid > emaSlow and action == 2:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
+        #
+        # if emaFast > emaSlow and action == 0 and self.position < 0:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
+        # elif emaFast < emaSlow and action == 0 and self.position > 0:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
+        # elif emaFast > emaSlow and action == 1:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive
+        # elif emaFast < emaSlow and action == 2:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive
+        # elif emaFast > emaSlow and action == 0 and self.position > 0:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive
+        # elif emaFast < emaSlow and action == 0 and self.position < 0:
+        #     profit_loss += (abs(self.position) + position) * trend_incentive
+        #
+        # if mid < emaSlow and action == 1:
+        #     profit_loss += counter_trend_penalty
+        # elif mid > emaSlow and action == 2:
+        #     profit_loss += counter_trend_penalty
+        #
+        # if self.floating_pl < 0 and not action == 0:
+        #     profit_loss += additional_order_penalty
 
         hurdle_return = 0.002 * abs(self.position) * -1
 
         if self.position > 0 and action == 2:
             profit_loss += hurdle_return
         elif self.position < 0 and action == 1:
+            profit_loss += hurdle_return
+
+        if self.position > 0 and action == 2 and mid > emaSlow:
+            profit_loss += hurdle_return
+        elif self.position < 0 and action == 1 and mid < emaSlow:
             profit_loss += hurdle_return
 
         if self.total_balance + profit_loss > 0:

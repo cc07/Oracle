@@ -55,7 +55,7 @@ def run(load_sess=False, output_graph=True):
     n_lookback = 9
     n_channel = 1
 
-    MEMORY_SIZE = 50000
+    MEMORY_SIZE = 100000
     e_greedy_increment = 0.0001
     reward_decay = 0.99
     learning_rate = 0.0001
