@@ -55,7 +55,10 @@ class Portfolio:
             'max_holding_period': 0,
             'total_holding_period': 0,
             'reward': 0,
-            'diff_sharpe': 0
+            'diff_sharpe': 0,
+            'max_floating_profit': 0,
+            'max_floating_loss': 0,
+            'max_total_balance': 0
         }
 
         self.order = deque()
@@ -77,7 +80,7 @@ class Portfolio:
             profit_loss = (price[0] - self.order_price) * self.position * (self.holding_period ** 0.5)
 
         # holding incentive for profitable position
-        if self.floating_pl > abs(self.position) * 0.001:
+        if self.floating_pl > abs(self.position) * 0.0015:
             profit_loss += 0.00001 * (self.holding_period ** 0.5)
 
         # if self.floating_pl > abs(self.position) * 0.001:
@@ -143,9 +146,11 @@ class Portfolio:
         elif self.position < 0 and action == 1:
             profit_loss += hurdle_return
 
-        if self.position > 0 and action == 2 and mid > emaSlow:
+        if self.position < 0 and action == 1 and mid > emaSlow:
+        # if self.position > 0 and action == 2 and mid > emaSlow:
             profit_loss += hurdle_return
-        elif self.position < 0 and action == 1 and mid < emaSlow:
+        # elif self.position < 0 and action == 1 and mid < emaSlow:
+        elif self.position > 0 and action == 2 and mid < emaSlow:
             profit_loss += hurdle_return
 
         if self.total_balance + profit_loss > 0:
@@ -329,7 +334,14 @@ class Portfolio:
         else:
             self.floating_pl = 0
 
+        if self.floating_pl > 0:
+            self.stat['max_floating_profit'] = max(self.stat['max_floating_profit'], self.floating_pl)
+        elif self.floating_pl < 0:
+            self.stat['max_floating_loss'] = min(self.stat['max_floating_loss'], self.floating_pl)
+
         self.total_balance = self.balance + self.floating_pl
+
+        self.stat['max_total_balance'] = max(self.stat['max_total_balance'], self.total_balance)
         # episode_return = (self.total_balance - self.hist_balance) / self.hist_balance
 
         # hurdle_return = 0.001 * abs(self.position)

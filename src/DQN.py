@@ -277,6 +277,8 @@ class DeepQNetwork:
                                      'win', 'win_buy', 'win_sell', \
                                      'max_win', 'avg_win', 'max_lose', 'avg_lose', \
                                      'max_holding_period', 'avg_holding_period', \
+                                     'max_floating_profit', 'max_floating_loss', \
+                                     'max_total_balance', \
                                      'n_buy', 'n_sell', 'reward', 'diff_sharpe']
 
                 self.summary_placeholders = {}
@@ -498,6 +500,9 @@ class DeepQNetwork:
                 'reward': stat['reward'],
                 'max_holding_period': stat['max_holding_period'],
                 'avg_holding_period': float(stat['total_holding_period']) / float(stat['n_trades']),
+                'max_floating_profit': stat['max_floating_profit'],
+                'max_floating_loss': stat['max_floating_loss'],
+                'max_total_balance': stat['max_total_balance'],
                 # 'r_balance': realBalance,
                 'epsilon': self.epsilon,
                 'q_max': self.totalMaxQ,
@@ -536,9 +541,9 @@ class DeepQNetwork:
             #sys.exit(2)
         else:
             try:
-                self.saver = tf.train.Saver()
+                # self.saver = tf.train.Saver()
                 self.saver.restore(self.sess, ckpt.model_checkpoint_path)
-                self.summary_writer.add_session_log(tf.SessionLog(status=SessionLog.STRAT), global_step=step)
+                self.summary_writer.add_session_log(tf.SessionLog(status=tf.SessionLog.START), global_step=step)
                 print('Sess restored successfully: {}'.format(ckpt.model_checkpoint_path))
             except Exception as e:
                 print('Failed to load sess: {}'.format(str(e)))

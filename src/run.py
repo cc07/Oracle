@@ -55,7 +55,7 @@ def run(load_sess=False, output_graph=True):
     n_lookback = 9
     n_channel = 1
 
-    MEMORY_SIZE = 100000
+    MEMORY_SIZE = 200000
     e_greedy_increment = 0.0001
     reward_decay = 0.99
     learning_rate = 0.0001
@@ -63,7 +63,7 @@ def run(load_sess=False, output_graph=True):
     dueling = True
     prioritized = True
 
-    epoches = 1000
+    epoches = 10000
     display_interval = 240
     batch_size = 1000
     learn_interval = 10
@@ -73,7 +73,7 @@ def run(load_sess=False, output_graph=True):
 
     initial_balance = 1000
     position_base = 5000
-    capacity_factor = 0.1
+    capacity_factor = 0.2
     leverage_factor = 1
 
     save_interval = 10000
@@ -96,7 +96,7 @@ def run(load_sess=False, output_graph=True):
     # rhythm.load()
 
     # if (load_sess):
-    #     oracle.load()
+    # oracle.load(1000)
 
     last_save_step = 0
     # X_train = np.reshape(X_train, (-1, )
