@@ -93,6 +93,8 @@ class Portfolio:
         # holding incentive for profitable position
         if self.floating_pl > abs(self.position) * 0.0015 * (1 + (self.holding_period ** 0.5) / 10):
             profit_loss += 0.00001 * (self.holding_period ** 0.5)
+        elif self.floating_pl < abs(self.position) * 0.0050 * -1:
+            profit_loss += 0.00001 * (abs(self.position) / self.floating_pl / 50) * (self.holding_period ** 0.5) * -1
 
         # if self.floating_pl > abs(self.position) * 0.001:
         #     incentive = 0.00001 * (self.holding_period ** 0.5)

@@ -57,7 +57,7 @@ def run(load_sess=False, output_graph=True):
 
     MEMORY_SIZE = 200000
     e_greedy_increment = 0.001
-    reward_decay = 0.99
+    reward_decay = 0.95
     learning_rate = 0.0001
     replace_target_iter = 5000
     dueling = True
