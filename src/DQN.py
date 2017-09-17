@@ -277,8 +277,10 @@ class DeepQNetwork:
                                      'win', 'win_buy', 'win_sell', \
                                      'max_win', 'avg_win', 'max_lose', 'avg_lose', \
                                      'max_holding_period', 'avg_holding_period', \
+                                     'avg_profit_holding_period', 'avg_loss_holding_period', \
                                      'max_floating_profit', 'max_floating_loss', \
                                      'max_total_balance', \
+                                     'up_buy', 'down_sell', \
                                      'n_buy', 'n_sell', 'reward', 'diff_sharpe']
 
                 self.summary_placeholders = {}
@@ -492,7 +494,9 @@ class DeepQNetwork:
                 'win_buy': float(stat['win_buy']) / float(stat['n_buy']) if int(stat['n_buy']) > 0 else 0,
                 'win_sell': float(stat['win_sell']) / float(stat['n_sell']) if int(stat['n_sell']) > 0 else 0,
                 'n_buy': stat['n_buy'],
+                'up_buy': float(stat['n_up_buy']) / float(stat['n_buy']),
                 'n_sell': stat['n_sell'],
+                'down_sell': float(stat['n_down_sell']) / float(stat['n_sell']),
                 'max_win': stat['max_win'],
                 'avg_win': float(stat['total_win']) / float(stat['n_win']),
                 'max_lose': stat['max_lose'],
@@ -500,6 +504,8 @@ class DeepQNetwork:
                 'reward': stat['reward'],
                 'max_holding_period': stat['max_holding_period'],
                 'avg_holding_period': float(stat['total_holding_period']) / float(stat['n_trades']),
+                'avg_profit_holding_period': float(stat['total_profit_holding_period']) / float(stat['n_win']),
+                'avg_loss_holding_period': float(stat['total_loss_holding_period']) / (float(stat['n_trades']) - float(stat['n_win'])),
                 'max_floating_profit': stat['max_floating_profit'],
                 'max_floating_loss': stat['max_floating_loss'],
                 'max_total_balance': stat['max_total_balance'],

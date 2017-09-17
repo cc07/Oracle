@@ -56,7 +56,7 @@ def run(load_sess=False, output_graph=True):
     n_channel = 1
 
     MEMORY_SIZE = 200000
-    e_greedy_increment = 0.0001
+    e_greedy_increment = 0.001
     reward_decay = 0.99
     learning_rate = 0.0001
     replace_target_iter = 5000
