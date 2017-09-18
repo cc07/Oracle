@@ -18,6 +18,7 @@ from DQN import DeepQNetwork
 from Portfolio import Portfolio
 
 sys.path.append('/Users/cc/documents/ds/matryoshka/')
+# sys.path.append('/home/alchemist/matryoshka/')
 
 from rhythm import Rhythm
 
