@@ -99,6 +99,16 @@ class Portfolio:
         # if self.floating_pl < abs(self.position) * -0.0050:
         #     profit_loss += 0.00001 * ((abs(self.floating_pl / self.position) * 10000) / 50) * holding_period_factor * -1
 
+        if self.floating_pl > abs(self.position) * 0.0015 * holding_period_factor:
+            if self.position > 0 and mid > emaFast:
+                profit_loss += 0.000005 * self.position
+            elif self.position < 0 and mid < emaFast:
+                profit_loss += 0.000005 * abs(self.position)
+        elif self.floating_pl < abs(self.position) * -0.0100:
+            profit_loss += 0.00001 * abs(self.position) * -1 * holding_period_factor        
+        elif self.floating_pl < abs(self.position) * -0.0050:
+            profit_loss += 0.000005 * abs(self.position) * -1 * holding_period_factor
+
         hurdle_return = 0.002 * abs(self.position) * holding_period_factor *  -1
 
         if self.position > 0 and action == 2:
