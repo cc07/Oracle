@@ -132,7 +132,8 @@ class Portfolio:
             self.hist_diff_sharpe_bottom = diff_sharpe_bottom
 
             self.stat['diff_sharpe'] = diff_sharpe
-            reward = diff_sharpe
+            # reward = diff_sharpe
+            reward = log_return
 
         # reward = log_return
         self.stat['reward'] += reward
