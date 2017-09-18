@@ -108,7 +108,7 @@ class Portfolio:
 
         # negative porfit penalty
         if profit_loss < 0:
-            profit_loss = profit_loss * (abs(self.floating_pl / self.position) * 10000) / 50) * holding_period_factor
+            profit_loss = profit_loss * ((abs(self.floating_pl / self.position) * 10000) / 50) * holding_period_factor
 
         # if self.position < 0 and mid > emaFast and emaFast > emaSlow and action == 1:
         #     profit_loss += hurdle_return
