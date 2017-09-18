@@ -56,7 +56,7 @@ def run(load_sess=False, output_graph=True):
     n_channel = 1
 
     MEMORY_SIZE = 200000
-    e_greedy_increment = 0.001
+    e_greedy_increment = 0.0005
     reward_decay = 0.95
     learning_rate = 0.0001
     replace_target_iter = 5000
@@ -85,7 +85,7 @@ def run(load_sess=False, output_graph=True):
 
     n_lookback = 9 #X.shape[1]
     n_feature = 32 #X.shape[2]
-    n_channel = 1 #X.shape[3]
+    n_channel = 4 #X.shape[3]
     n_output = 7 #y.shape[1]
 
     print('Initializing Rhythm')
@@ -198,10 +198,11 @@ def run(load_sess=False, output_graph=True):
                     oracle.learn()
 
                 if i % display_interval == 0:
-                    print ('Epoch: {}, Batch: {}, Balance: {}, Position: {}, Trades: {}, Buy: {}, Sell: {}, Cost: {}'.format( \
+                    sys.stdout.write('Epoch: {}, Batch: {}, Balance: {}, Position: {}, Trades: {}, Buy: {}, Sell: {}, Cost: {}'.format( \
                         epoch, b, int(goldkeeper.total_balance), \
                         goldkeeper.position, goldkeeper.stat['n_trades'], \
                         goldkeeper.stat['n_buy'], goldkeeper.stat['n_sell'], oracle.cost))
+                    sys.stdout.flush()
 
                 if step > MEMORY_SIZE and oracle.learn_step_counter % save_interval == 0 and last_save_step != oracle.learn_step_counter:
                     oracle.save()

@@ -29,7 +29,7 @@ class DeepQNetwork:
             e_greedy=0.9,
             replace_target_iter=200,
             memory_size=500,
-            batch_size=64,
+            batch_size=32,
             e_greedy_increment=None,
             output_graph=False,
             dueling=True,
@@ -275,7 +275,8 @@ class DeepQNetwork:
                                      'q_max', 'q_total', 'epsilon', \
                                      'sharpe_ratio', 'n_trades', \
                                      'win', 'win_buy', 'win_sell', \
-                                     'max_win', 'avg_win', 'max_lose', 'avg_lose', \
+                                     'max_profit', 'avg_profit', 'max_loss', 'avg_loss', \
+                                     'total_profit', 'total_loss', \
                                      'max_holding_period', 'avg_holding_period', \
                                      'avg_profit_holding_period', 'avg_loss_holding_period', \
                                      'max_floating_profit', 'max_floating_loss', \
@@ -497,10 +498,12 @@ class DeepQNetwork:
                 'up_buy': float(stat['n_up_buy']) / float(stat['n_buy']),
                 'n_sell': stat['n_sell'],
                 'down_sell': float(stat['n_down_sell']) / float(stat['n_sell']),
-                'max_win': stat['max_win'],
-                'avg_win': float(stat['total_win']) / float(stat['n_win']),
-                'max_lose': stat['max_lose'],
-                'avg_lose': float(stat['total_lose']) / (float(stat['n_trades']) - float(stat['n_win'])),
+                'max_profit': stat['max_profit'],
+                'avg_profit': float(stat['total_profit']) / float(stat['n_win']),
+                'total_profit': stat['total_profit'],
+                'max_loss': stat['max_loss'],
+                'avg_loss': float(stat['total_loss']) / (float(stat['n_trades']) - float(stat['n_win'])),
+                'total_loss': stat['total_loss'],
                 'reward': stat['reward'],
                 'max_holding_period': stat['max_holding_period'],
                 'avg_holding_period': float(stat['total_holding_period']) / float(stat['n_trades']),

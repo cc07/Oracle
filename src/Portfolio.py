@@ -51,10 +51,10 @@ class Portfolio:
             'n_down_sell': 0,
             'n_sell': 0,
             'count': 0,
-            'max_win': 0,
-            'total_win': 0,
-            'max_lose': 0,
-            'total_lose': 0,
+            'max_profit': 0,
+            'total_profit': 0,
+            'max_loss': 0,
+            'total_loss': 0,
             'max_holding_period': 0,
             'total_holding_period': 0,
             'total_profit_holding_period': 0,
@@ -78,92 +78,38 @@ class Portfolio:
         trend_incentive = 0.00001 * (self.holding_period ** 0.5)
         counter_trend_penalty = (price[0] - price[1]) * (abs(self.position) + position)
         additional_order_penalty = (price[0] - price[1]) * (abs(self.position) + position)
+        holding_period_factor = (1 + (self.holding_period ** 0.5) / 10)
 
         self.trend = 1 if mid > emaSlow else 0
 
         if action == 1 and self.position < 0: # settle buy
-            profit_loss = (price[1] - self.order_price) * self.position * (self.holding_period ** 0.5)
+            profit_loss = (price[1] - self.order_price) * self.position
         elif action == 2 and self.position > 0: # settle sell
-            profit_loss = (price[0] - self.order_price) * self.position * (self.holding_period ** 0.5)
+            profit_loss = (price[0] - self.order_price) * self.position
 
         # negative porfit penalty
-        if profit_loss < 0:
-            profit_loss = profit_loss * 1.5
+        # if profit_loss < 0:
+        #     profit_loss = profit_loss * 1.5
 
+        # if self.floating_pl > abs(self.position) * 0.0080:
+        #     profit_loss += 0.00001 * (self.holding_period ** 0.5) * -1
         # holding incentive for profitable position
-        if self.floating_pl > abs(self.position) * 0.0015 * (1 + (self.holding_period ** 0.5) / 10):
-            profit_loss += 0.00001 * (self.holding_period ** 0.5)
-        elif self.floating_pl < abs(self.position) * 0.0050 * -1:
-            profit_loss += 0.00001 * (abs(self.position) / self.floating_pl / 50) * (self.holding_period ** 0.5) * -1
 
-        # if self.floating_pl > abs(self.position) * 0.001:
-        #     incentive = 0.00001 * (self.holding_period ** 0.5)
-        # else:
-        #     incentive = 0
-        #
-        # if action == 0 and self.position > 0: # hold & buy
-        #     profit_loss = self.position * incentive
-        # elif action == 0 and self.position < 0: # hold & sell
-        #     profit_loss = self.position * incentive * -1
-        # elif action == 1 and self.position == 0: # open buy
-        #     # profit_loss = (price[0] - price[1]) * position
-        #     profit_loss = 0
-        # elif action == 1 and self.position > 0: # addtional buy
-        #     # profit_loss = (price[0] - price[1]) * position + self.position * incentive
-        #     profit_loss = (self.position + position) * incentive
-        # elif action == 1 and self.position < 0: # settle buy
-        #     profit_loss = (price[1] - self.order_price) * self.position * (self.holding_period ** 0.5)
-        # elif action == 2 and self.position == 0: # open sell
-        #     # profit_loss = (price[0] - price[1]) * position
-        #     profit_loss = 0
-        # elif action == 2 and self.position < 0: # addtional sell
-        #     # profit_loss = (price[0] - price[1]) * position + self.position * incentive * -1
-        #     profit_loss = (self.position - position) * incentive * -1
-        # elif action == 2 and self.position > 0: # settle sell
-        #     profit_loss = (price[0] - self.order_price) * self.position * (self.holding_period ** 0.5)
-        #
-        # if mid < emaSlow and action == 0 and self.position > 0:
-        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
-        # elif mid < emaSlow and action == 1:
-        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
-        # elif mid > emaSlow and action == 0 and self.position < 0:
-        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
-        # elif mid > emaSlow and action == 2:
-        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
-        #
-        # if emaFast > emaSlow and action == 0 and self.position < 0:
-        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
-        # elif emaFast < emaSlow and action == 0 and self.position > 0:
-        #     profit_loss += (abs(self.position) + position) * trend_incentive * -1
-        # elif emaFast > emaSlow and action == 1:
-        #     profit_loss += (abs(self.position) + position) * trend_incentive
-        # elif emaFast < emaSlow and action == 2:
-        #     profit_loss += (abs(self.position) + position) * trend_incentive
-        # elif emaFast > emaSlow and action == 0 and self.position > 0:
-        #     profit_loss += (abs(self.position) + position) * trend_incentive
-        # elif emaFast < emaSlow and action == 0 and self.position < 0:
-        #     profit_loss += (abs(self.position) + position) * trend_incentive
-        #
-        # if mid < emaSlow and action == 1:
-        #     profit_loss += counter_trend_penalty
-        # elif mid > emaSlow and action == 2:
-        #     profit_loss += counter_trend_penalty
-        #
-        # if self.floating_pl < 0 and not action == 0:
-        #     profit_loss += additional_order_penalty
+        # if self.floating_pl > abs(self.position) * 0.0015 * holding_period_factor:
+        #     profit_loss += 0.00001 * holding_period_factor
+        # elif self.floating_pl < abs(self.position) * 0.0050 * -1:
+        #     profit_loss += 0.00001 * ((abs(self.floating_pl / self.position) * 10000) / 50) * holding_period_factor * -1
 
-        hurdle_return = 0.002 * abs(self.position) * (1 + (self.holding_period ** 0.5) / 10) *  -1
-
-        if self.position > 0 and action == 2:
-            profit_loss += hurdle_return
-        elif self.position < 0 and action == 1:
-            profit_loss += hurdle_return
+        # hurdle_return = 0.002 * abs(self.position) * holding_period_factor *  -1
         #
-        # if self.position < 0 and action == 1 and mid > emaSlow:
-        # # if self.position > 0 and action == 2 and mid > emaSlow:
+        # if self.position > 0 and action == 2:
         #     profit_loss += hurdle_return
-        # # elif self.position < 0 and action == 1 and mid < emaSlow:
-        # elif self.position > 0 and action == 2 and mid < emaSlow:
+        # elif self.position < 0 and action == 1:
+        #     profit_loss += hurdle_return
+
+        # if self.position < 0 and mid > emaFast and emaFast > emaSlow and action == 1:
+        #     profit_loss += hurdle_return
+        # elif self.position > 0 and mid < emaFast and emaFast < emaSlow and action == 2:
         #     profit_loss += hurdle_return
 
         if self.total_balance + profit_loss > 0:
@@ -171,17 +117,20 @@ class Portfolio:
         else:
             log_return = log(self.total_balance) * -1
 
+        reward = 0
         decay = 0.9
-        diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
-        diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
-        diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
 
-        self.hist_diff_sharpe_top = diff_sharpe_top
-        self.hist_diff_sharpe_bottom = diff_sharpe_bottom
+        if profit_loss != 0:
+            diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
+            diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
+            diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
 
-        self.stat['diff_sharpe'] = diff_sharpe
+            self.hist_diff_sharpe_top = diff_sharpe_top
+            self.hist_diff_sharpe_bottom = diff_sharpe_bottom
 
-        reward = diff_sharpe
+            self.stat['diff_sharpe'] = diff_sharpe
+            reward = diff_sharpe
+            
         # reward = log_return
         self.stat['reward'] += reward
 
@@ -255,11 +204,11 @@ class Portfolio:
         #     pips = (price - self.order_price)
         # elif self.position < 0:
         #     pips = (self.order_price - price)
-        pips = price - self.order_price
-        profit_loss = pips * self.position
-        hurdle_return = 0.001 * abs(self.position)
+
+        profit_loss = (price - self.order_price) * self.position
+        # hurdle_return = 0.001 * abs(self.position)
         # print('hurdle: {}'.format(hurdle_return))
-        log_return = log(self.balance + profit_loss - hurdle_return) - log(self.balance)
+        log_return = log(self.balance + profit_loss) - log(self.balance)
         self.balance += profit_loss
 
         # print('profit_loss: {}'.format(profit_loss))
@@ -272,18 +221,21 @@ class Portfolio:
         #     'profit_loss': profit_loss
         # })
         # print('history: {}'.format(self.history))
+
+        pips = profit_loss / abs(self.position) * 10000
+
         if profit_loss > 0:
             self.stat['n_win'] += self.n_order
-            self.stat['max_win'] = max(self.stat['max_win'], profit_loss)
-            self.stat['total_win'] += profit_loss
+            self.stat['max_profit'] = max(self.stat['max_profit'], pips)
+            self.stat['total_profit'] += pips * self.n_order
             self.stat['total_profit_holding_period'] += self.holding_period * self.n_order
             if self.position > 0:
                 self.stat['win_buy'] += self.n_order
             else:
                 self.stat['win_sell'] += self.n_order
         else:
-            self.stat['max_lose'] = min(self.stat['max_lose'], profit_loss)
-            self.stat['total_lose'] += profit_loss
+            self.stat['max_loss'] = min(self.stat['max_loss'], pips)
+            self.stat['total_loss'] += pips * self.n_order
             self.stat['total_loss_holding_period'] += self.holding_period * self.n_order
 
         self.stat['max_holding_period'] = max(self.stat['max_holding_period'], self.holding_period)
@@ -351,10 +303,12 @@ class Portfolio:
         else:
             self.floating_pl = 0
 
+        pips = self.floating_pl / abs(self.position) * 10000 if abs(self.position) > 0 else 0
+
         if self.floating_pl > 0:
-            self.stat['max_floating_profit'] = max(self.stat['max_floating_profit'], self.floating_pl)
+            self.stat['max_floating_profit'] = max(self.stat['max_floating_profit'], pips)
         elif self.floating_pl < 0:
-            self.stat['max_floating_loss'] = min(self.stat['max_floating_loss'], self.floating_pl)
+            self.stat['max_floating_loss'] = min(self.stat['max_floating_loss'], pips)
 
         self.total_balance = self.balance + self.floating_pl
 
