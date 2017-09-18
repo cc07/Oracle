@@ -87,10 +87,6 @@ class Portfolio:
         elif action == 2 and self.position > 0: # settle sell
             profit_loss = (price[0] - self.order_price) * self.position
 
-        # negative porfit penalty
-        # if profit_loss < 0:
-        #     profit_loss = profit_loss * 1.5
-
         # if self.floating_pl > abs(self.position) * 0.0080:
         #     profit_loss += 0.00001 * (self.holding_period ** 0.5) * -1
         # holding incentive for profitable position
@@ -106,6 +102,10 @@ class Portfolio:
             profit_loss += hurdle_return
         elif self.position < 0 and action == 1:
             profit_loss += hurdle_return
+
+        # negative porfit penalty
+        if profit_loss < 0:
+            profit_loss = profit_loss * 1.5            
 
         # if self.position < 0 and mid > emaFast and emaFast > emaSlow and action == 1:
         #     profit_loss += hurdle_return
@@ -123,7 +123,7 @@ class Portfolio:
         if profit_loss != 0:
             diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
             diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
-            diff_sharpe = diff_sharpe_top / diff_sharpe_bottom / 1000 if diff_sharpe_bottom > 0 else 0
+            diff_sharpe = diff_sharpe_top / diff_sharpe_bottom if diff_sharpe_bottom > 0 else 0
 
             self.hist_diff_sharpe_top = diff_sharpe_top
             self.hist_diff_sharpe_bottom = diff_sharpe_bottom
