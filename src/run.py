@@ -123,8 +123,8 @@ def run(load_sess=False, output_graph=True):
 
         for b in range(start, total_batch):
 
-            if goldkeeper.balance < 200:
-                print('Balance less than 200, starting another epoch')
+            if goldkeeper.balance < 500:
+                print('Balance less than 500, starting another epoch')
                 terminated = True
                 break;
 
@@ -150,7 +150,7 @@ def run(load_sess=False, output_graph=True):
                 # print('price: {}'.format(price))
                 # print('observation: {}'.format(observation))
 
-                if goldkeeper.balance < 200 or (i == len(X_batches[b]) and b == total_batch):
+                if goldkeeper.balance < 500 or (i == len(X_batches[b]) and b == total_batch):
                     break;
 
                 action = oracle.choose_action(observation)
@@ -158,6 +158,9 @@ def run(load_sess=False, output_graph=True):
 
                 leverage_factor = goldkeeper.total_balance / initial_balance
                 position = int(max(0, min(position_base * leverage_factor, (goldkeeper.total_balance / capacity_factor) - abs(goldkeeper.position))))
+
+                if action != 0 and abs(goldkeeper.position) == 0 and position < 5000:
+                    position = 5000
 
                 try:
                     dataset_ = data_batches[b][i+1] if (i < len(data_batches[b]) - 1) else data_batches[b+1][0]
@@ -198,11 +201,10 @@ def run(load_sess=False, output_graph=True):
                     oracle.learn()
 
                 if i % display_interval == 0:
-                    sys.stdout.write('Epoch: {}, Batch: {}, Balance: {}, Position: {}, Trades: {}, Buy: {}, Sell: {}, Cost: {}'.format( \
+                    print ('Epoch: {}, Batch: {}, Balance: {}, Position: {}, Trades: {}, Buy: {}, Sell: {}, Cost: {}'.format( \
                         epoch, b, int(goldkeeper.total_balance), \
                         goldkeeper.position, goldkeeper.stat['n_trades'], \
                         goldkeeper.stat['n_buy'], goldkeeper.stat['n_sell'], oracle.cost))
-                    sys.stdout.flush()
 
                 if step > MEMORY_SIZE and oracle.learn_step_counter % save_interval == 0 and last_save_step != oracle.learn_step_counter:
                     oracle.save()

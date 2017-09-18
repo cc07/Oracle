@@ -100,12 +100,12 @@ class Portfolio:
         # elif self.floating_pl < abs(self.position) * 0.0050 * -1:
         #     profit_loss += 0.00001 * ((abs(self.floating_pl / self.position) * 10000) / 50) * holding_period_factor * -1
 
-        # hurdle_return = 0.002 * abs(self.position) * holding_period_factor *  -1
-        #
-        # if self.position > 0 and action == 2:
-        #     profit_loss += hurdle_return
-        # elif self.position < 0 and action == 1:
-        #     profit_loss += hurdle_return
+        hurdle_return = 0.002 * abs(self.position) * holding_period_factor *  -1
+
+        if self.position > 0 and action == 2:
+            profit_loss += hurdle_return
+        elif self.position < 0 and action == 1:
+            profit_loss += hurdle_return
 
         # if self.position < 0 and mid > emaFast and emaFast > emaSlow and action == 1:
         #     profit_loss += hurdle_return
@@ -130,7 +130,7 @@ class Portfolio:
 
             self.stat['diff_sharpe'] = diff_sharpe
             reward = diff_sharpe
-            
+
         # reward = log_return
         self.stat['reward'] += reward
 
