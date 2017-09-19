@@ -63,7 +63,8 @@ class Portfolio:
             'diff_sharpe': 0,
             'max_floating_profit': 0,
             'max_floating_loss': 0,
-            'max_total_balance': 0
+            'max_total_balance': 0,
+            'profit_make_good': 0
         }
 
         self.order = deque()
@@ -99,26 +100,16 @@ class Portfolio:
         # if self.floating_pl < abs(self.position) * -0.0050:
         #     profit_loss += 0.00001 * ((abs(self.floating_pl / self.position) * 10000) / 50) * holding_period_factor * -1
 
-        if self.floating_pl > abs(self.position) * 0.0015 * holding_period_factor:
-            if self.position > 0 and mid > emaFast:
-                profit_loss += 0.000005 * self.position
-            elif self.position < 0 and mid < emaFast:
-                profit_loss += 0.000005 * abs(self.position)
-        elif self.floating_pl < abs(self.position) * -0.0100:
-            profit_loss += 0.00001 * abs(self.position) * -1 * holding_period_factor        
-        elif self.floating_pl < abs(self.position) * -0.0050:
-            profit_loss += 0.000005 * abs(self.position) * -1 * holding_period_factor
-
-        hurdle_return = 0.002 * abs(self.position) * holding_period_factor *  -1
-
-        if self.position > 0 and action == 2:
-            profit_loss += hurdle_return
-        elif self.position < 0 and action == 1:
-            profit_loss += hurdle_return
+        # hurdle_return = 0.002 * abs(self.position) * holding_period_factor *  -1
+        #
+        # if self.position > 0 and action == 2:
+        #     profit_loss += hurdle_return
+        # elif self.position < 0 and action == 1:
+        #     profit_loss += hurdle_return
 
         # negative porfit penalty
-        if profit_loss < 0:
-            profit_loss = profit_loss * ((abs(self.floating_pl / self.position) * 10000) / 50) * holding_period_factor
+        # if profit_loss < 0:
+        #     profit_loss = profit_loss * ((abs(self.floating_pl / self.position) * 10000) / 50) * holding_period_factor
 
         # if self.position < 0 and mid > emaFast and emaFast > emaSlow and action == 1:
         #     profit_loss += hurdle_return
@@ -129,6 +120,11 @@ class Portfolio:
             log_return = log(self.total_balance + profit_loss) - log(self.total_balance)
         else:
             log_return = log(self.total_balance) * -1
+
+        if log_return > 0:
+            log_return = log_return ** (1 / (self.holding_period ** 0.5))
+        elif log_return < 0:
+            log_return = log_return * (1 + (self.holding_period ** 0.5) / 10)
 
         reward = 0
         decay = 0.9
@@ -142,8 +138,18 @@ class Portfolio:
             self.hist_diff_sharpe_bottom = diff_sharpe_bottom
 
             self.stat['diff_sharpe'] = diff_sharpe
+
+            hist_return = list(self.hist_profit_loss)
+            hist_return.append(log_return)
+
+            sum_top = np.sum(hist_return)
+            sum_bottom = np.sum(np.absolute(hist_return))
+
+            profit_make_good = sum_top / sum_bottom
+            self.stat['profit_make_good'] = profit_make_good
             # reward = diff_sharpe
-            reward = log_return
+            # reward = log_return
+            reward = profit_make_good
 
         # reward = log_return
         self.stat['reward'] += reward

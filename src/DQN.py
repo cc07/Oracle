@@ -280,7 +280,7 @@ class DeepQNetwork:
                                      'max_holding_period', 'avg_holding_period', \
                                      'avg_profit_holding_period', 'avg_loss_holding_period', \
                                      'max_floating_profit', 'max_floating_loss', \
-                                     'max_total_balance', \
+                                     'max_total_balance', 'profit_make_good', \
                                      'up_buy', 'down_sell', \
                                      'n_buy', 'n_sell', 'reward', 'diff_sharpe']
 
@@ -512,6 +512,7 @@ class DeepQNetwork:
                 'max_floating_profit': stat['max_floating_profit'],
                 'max_floating_loss': stat['max_floating_loss'],
                 'max_total_balance': stat['max_total_balance'],
+                'profit_make_good': stat['profit_make_good'],
                 # 'r_balance': realBalance,
                 'epsilon': self.epsilon,
                 'q_max': self.totalMaxQ,
