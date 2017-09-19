@@ -52,7 +52,7 @@ def run(load_sess=False, output_graph=True):
     # X_train = train[1:40000]
     # X_train = X_train.drop(['Timestamp', 'Date', 'Time'], axis=1)
     n_action = 3
-    n_feature = X_train.shape[1] + 13
+    n_feature = X_train.shape[1] + 10
     n_lookback = 9
     n_channel = 1
 
@@ -169,7 +169,10 @@ def run(load_sess=False, output_graph=True):
                     emaFast_ = price_batches[b][i+1][4] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0][4]
                     emaSlow_ = price_batches[b][i+1][5] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0][5]
 
-                    reward = goldkeeper.get_reward(action, price, position, price_, emaFast, emaSlow)
+                    reward = np.zeros(n_action)
+                    # reward = goldkeeper.get_reward(action, price, position, price_, emaFast, emaSlow)
+                    for k in range(n_action):
+                        reward[k] = goldkeeper.get_reward(k, price, position, price_, emaFast, emaSlow)
 
                     # print('reward: {}, price: {}, price_: {}'.format(reward, price, price_))
                     goldkeeper.book_record(price, action, position, price_)
@@ -188,7 +191,9 @@ def run(load_sess=False, output_graph=True):
 
                 # if warm_up > 9:
                 #     oracle.store_transition(state, action, reward, state_)
-                oracle.store_transition(observation, action, reward, observation_)
+                # oracle.store_transition(observation, action, reward, observation_)
+                for k in range(n_action):
+                    oracle.store_transition(observation, k, reward[k], observation_)
 
                 dataset = dataset_
                 price = price_
@@ -219,7 +224,8 @@ def observe_environment(rhythm, goldkeeper, base_observation, price, dataset, em
 
     # observation = np.hstack((rhythm.predict(np.array([dataset])), goldkeeper.get_environment()))
     mid = (price[0] + price[1]) / 2
-    observation = np.hstack((dataset, goldkeeper.get_environment(), log(emaFast/emaSlow), log(mid/emaFast), log(mid/emaSlow)))
+    # observation = np.hstack((dataset, goldkeeper.get_environment(), log(emaFast/emaSlow), log(mid/emaFast), log(mid/emaSlow)))
+    observation = np.hstack((dataset, log(emaFast/emaSlow), log(mid/emaFast), log(mid/emaSlow)))
     observation = np.hstack((observation, base_observation))
     return observation
 

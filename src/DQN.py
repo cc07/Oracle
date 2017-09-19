@@ -257,6 +257,7 @@ class DeepQNetwork:
 
             with tf.variable_scope('train'):
                 self._train_op = tf.train.RMSPropOptimizer(learning_rate=self.lr, decay=self.op_decay).minimize(self.loss)
+                # self._train_op = tf.train.AdamOptimizer(learning_rate=self.lr).minimize(self.loss)
 
             # ------------------ build target_net ------------------
             self.s_ = tf.placeholder(tf.float32, [None, self.n_feature], name='s_')    # input

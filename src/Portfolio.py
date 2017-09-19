@@ -124,7 +124,7 @@ class Portfolio:
         if log_return > 0:
             log_return = log_return ** (1 / (self.holding_period ** 0.5))
         elif log_return < 0:
-            log_return = log_return * (1 + (self.holding_period ** 0.5) / 10)
+            log_return = log_return * min((1 + (self.holding_period ** 0.5) / 10), 2)
 
         reward = 0
         decay = 0.9
