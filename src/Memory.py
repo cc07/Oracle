@@ -18,6 +18,7 @@ class Memory(object):   # stored as ( s, a, r, s_ ) in SumTree
 
     def store(self, transition):
         max_p = np.max(self.tree.tree[-self.tree.capacity:])
+
         if max_p == 0:
             max_p = self.abs_err_upper
         self.tree.add_new_priority(max_p, transition)   # set the max p for new p
@@ -30,6 +31,7 @@ class Memory(object):   # stored as ( s, a, r, s_ ) in SumTree
         min_prob = np.min(self.tree.tree[-self.tree.capacity:]) / self.tree.root_priority
         maxiwi = np.power(self.tree.capacity * min_prob, -self.beta)  # for later normalizing ISWeights
 
+        # try:
         for i in range(n):
             a = segment * i
             b = segment * (i + 1)
@@ -39,6 +41,10 @@ class Memory(object):   # stored as ( s, a, r, s_ ) in SumTree
             ISWeights.append(self.tree.capacity * prob)
             batch_idx.append(idx)
             batch_memory.append(data)
+        # except:
+        #     print('{}'.format(self.tree.tree))
+        #     print('segment: {}, self.tree.root_priority: {}, n: {}'.format(segment, self.tree.root_priority, n))
+        #     print('a: {}, b: {}'.format(a, b))
 
         ISWeights = np.vstack(ISWeights)
         ISWeights = np.power(ISWeights, -self.beta) / maxiwi  # normalize

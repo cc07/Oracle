@@ -17,10 +17,10 @@ from random import randint
 from DQN import DeepQNetwork
 from Portfolio import Portfolio
 
-sys.path.append('/Users/cc/documents/ds/matryoshka/')
+# sys.path.append('/Users/cc/documents/ds/matryoshka/')
 # sys.path.append('/home/alchemist/matryoshka/')
-
-from rhythm import Rhythm
+#
+# from rhythm import Rhythm
 
 def run(load_sess=False, output_graph=True):
 
@@ -52,14 +52,14 @@ def run(load_sess=False, output_graph=True):
     # X_train = train[1:40000]
     # X_train = X_train.drop(['Timestamp', 'Date', 'Time'], axis=1)
     n_action = 3
-    n_feature = X_train.shape[1] + 10
+    n_feature = X_train.shape[1] + 11
     n_lookback = 9
     n_channel = 1
 
     MEMORY_SIZE = 200000
     e_greedy_increment = 0.00025
-    reward_decay = 0.95
-    learning_rate = 0.0001
+    reward_decay = 0.5
+    learning_rate = 0.01
     replace_target_iter = 5000
     dueling = True
     prioritized = True
@@ -113,6 +113,7 @@ def run(load_sess=False, output_graph=True):
 
         print('Epoch: {}'.format(epoch))
 
+        observation = None
         goldkeeper = Portfolio(initial_balance, 0, 0, 0, position_base=position_base, capacity_factor=capacity_factor, leverage_factor=leverage_factor)
         action = None
         state = np.array([])
@@ -132,11 +133,14 @@ def run(load_sess=False, output_graph=True):
             # dataset = X_batches[b]
             # price = dataset[0][0:2]
             # observation = dataset[0][2:]
-            dataset = data_batches[b][0]
-            price = price_batches[b][0][2:4]
-            emaFast = price_batches[b][0][4]
-            emaSlow = price_batches[b][0][5]
-            observation = observe_environment(rhythm, goldkeeper, X_batches[b][0], price, dataset, emaFast, emaSlow)
+
+            if observation is None:
+                dataset = data_batches[b][0]
+                price = price_batches[b][0][2:4]
+                emaFast = price_batches[b][0][4]
+                emaSlow = price_batches[b][0][5]
+                observation = observe_environment(rhythm, goldkeeper, X_batches[b][0], price, dataset, emaFast, emaSlow)
+                observation = np.hstack((observation, 0))
             # env.append(observation)
 
             # print ('total_batch: {}, len(X_train): {}'.format(total_batch, len(X_train)))
@@ -170,15 +174,47 @@ def run(load_sess=False, output_graph=True):
                     emaSlow_ = price_batches[b][i+1][5] if (i < len(price_batches[b]) - 1) else price_batches[b+1][0][5]
 
                     reward = np.zeros(n_action)
+                    log_return = np.zeros(n_action)
+                    profit_make_good = np.zeros(n_action)
+                    diff_sharpe = np.zeros(n_action)
+                    diff_sharpe_top = np.zeros(n_action)
+                    diff_sharpe_bottom = np.zeros(n_action)
+
+                    #######
                     # reward = goldkeeper.get_reward(action, price, position, price_, emaFast, emaSlow)
+
                     for k in range(n_action):
-                        reward[k] = goldkeeper.get_reward(k, price, position, price_, emaFast, emaSlow)
+                        reward[k], log_return[k], profit_make_good[k], diff_sharpe[k], diff_sharpe_top[k], diff_sharpe_bottom[k] = goldkeeper.get_reward(k, price, position, price_, emaFast, emaSlow)
 
                     # print('reward: {}, price: {}, price_: {}'.format(reward, price, price_))
-                    goldkeeper.book_record(price, action, position, price_)
 
                     observation_ = X_batches[b][i+1] if (i < len(X_batches[b]) - 1) else X_batches[b+1][0]
-                    observation_ = observe_environment(rhythm, goldkeeper, observation_, price_, dataset_, emaFast_, emaSlow_)
+                    state_ = observe_environment(rhythm, goldkeeper, observation_, price_, dataset_, emaFast_, emaSlow_)
+
+                    for k in range(n_action):
+                        if k == 0 and goldkeeper.position == 0:
+                            holding_status = 0
+                        elif k == 0 and goldkeeper.position > 0:
+                            holding_status = 1
+                        elif k == 0 and goldkeeper.position < 0:
+                            holding_status = -1
+                        elif k == 1 and goldkeeper.position >= 0:
+                            holding_status = 1
+                        elif k == 1 and goldkeeper.position < 0:
+                            holding_status = 0
+                        elif k == 2 and goldkeeper.position <= 0:
+                            holding_status = -1
+                        elif k == 2 and goldkeeper.position > 0:
+                            holding_status = 0
+
+                        state = np.hstack((state_, holding_status))
+                        oracle.store_transition(observation, k, reward[k], state)
+
+                        if action == k:
+                            observation_ = state
+
+                    goldkeeper.book_ep_stat(action, price, reward[action], log_return[action], profit_make_good[action], diff_sharpe[action], diff_sharpe_top[action], diff_sharpe_bottom[action])
+                    goldkeeper.book_record(price, action, position, price_)
                     # env.append(observation_)
 
                     # state_ = np.array(list(env))
@@ -192,8 +228,8 @@ def run(load_sess=False, output_graph=True):
                 # if warm_up > 9:
                 #     oracle.store_transition(state, action, reward, state_)
                 # oracle.store_transition(observation, action, reward, observation_)
-                for k in range(n_action):
-                    oracle.store_transition(observation, k, reward[k], observation_)
+
+                # print('{},{},{}'.format(reward[0],reward[1],reward[2]))
 
                 dataset = dataset_
                 price = price_
