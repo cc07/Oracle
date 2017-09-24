@@ -89,50 +89,61 @@ class Portfolio:
         self.trend = 1 if mid > emaSlow else 0
         self.price_prev = price if self.price_prev is None else self.price_prev
 
-        risk_factor = 1.05
+        # if action == 0 and self.position > 0:
+        #     profit_loss = (price[0] - self.price_prev[0]) * abs(self.position)
+        # elif action == 0 and self.position < 0:
+        #     profit_loss = (self.price_prev[1] - price[1]) * abs(self.position)
+        # elif action == 1 and self.position >= 0: # open buy
+        #     profit_loss = (price[0] - price[1]) * position + (price[0] - self.price_prev[0]) * abs(self.position)
+        # elif action == 1 and self.position < 0: # settle buy
+        #     profit_loss = (self.price_prev[1] - price[1]) * abs(self.position)
+        # elif action == 2 and self.position <= 0: # open sell
+        #     profit_loss = (price[0] - price[1]) * position + (self.price_prev[1] - price[1]) * abs(self.position)
+        # elif action == 2 and self.position > 0: # settle sell
+        #     profit_loss = (price[0] - self.price_prev[0]) * abs(self.position)
+        #
+        # if profit_loss < 0:
+        #     profit_loss = profit_loss * 1.5
+        #
+        # if profit_loss < 0 and self.floating_pl < 0 and self.position > 0 and mid < emaFast:
+        #     profit_loss = profit_loss * 1.5
+        # elif profit_loss < 0 and self.floating_pl < 0 and self.position < 0 and mid > emaFast:
+        #     profit_loss = profit_loss * 1.5
 
-        if action == 0 and self.position > 0:
-            profit_loss = (price[0] - self.price_prev[0]) * abs(self.position)
-        elif action == 0 and self.position < 0:
-            profit_loss = (self.price_prev[1] - price[1]) * abs(self.position)
-        elif action == 1 and self.position >= 0: # open buy
-            profit_loss = (price[0] - price[1]) * position * risk_factor + (price[0] - self.price_prev[0]) * abs(self.position)
-        elif action == 1 and self.position < 0: # settle buy
-            profit_loss = (self.price_prev[1] - price[1]) * abs(self.position)
-        elif action == 2 and self.position <= 0: # open sell
-            profit_loss = (price[0] - price[1]) * position * risk_factor + (self.price_prev[1] - price[1]) * abs(self.position)
-        elif action == 2 and self.position > 0: # settle sell
-            profit_loss = (price[0] - self.price_prev[0]) * abs(self.position)
+        if action == 1 and self.position < 0: # settle buy
+            profit_loss += (self.order_price - price[1]) * abs(self.position)
+        elif action == 2 and self.position > 0:
+            profit_loss += (price[0] - self.order_price) * abs(self.position)
 
-        trend_adjustment_factor = 1
-        loss_penalty_factor = 1.5
-        stop_loss_factor = 1.25
-
-        if action == 0 and self.position > 0 and emaFast > emaSlow and self.floating_pl > 0:
-            trend_adjustment_factor = 1.05
-        elif action == 0 and self.position < 0 and emaFast < emaSlow and self.floating_pl > 0:
-            trend_adjustment_factor = 1.05
-        elif action == 1 and self.position >= 0 and emaFast > emaSlow and self.floating_pl > 0:
-            trend_adjustment_factor = 1.05
-        elif action == 1 and self.position >= 0 and emaFast < emaSlow and self.floating_pl < 0:
-            trend_adjustment_factor = 1.05
-        elif action == 2 and self.position <= 0 and emaFast < emaSlow and self.floating_pl > 0:
-            trend_adjustment_factor = 1.05
-        elif action == 2 and self.position <= 0 and emaFast > emaSlow and self.floating_pl < 0:
-            trend_adjustment_factor = 1.05
-
-        if trend_adjustment_factor > 1:
-            profit_loss += abs(self.position) * 0.00005 * trend_adjustment_factor
-
-        if self.floating_pl < abs(self.position) * -0.0100:
-            profit_loss += abs(self.position) * -0.0001
-        elif self.floating_pl < abs(self.position) * -0.0050:
-            profit_loss += abs(self.position) * -0.00005
-
-        if self.floating_pl < 0 and action == 1 and self.position < 0:
-            profit_loss += abs(self.position) * -0.0005
-        elif self.floating_pl < 0 and action == 2 and self.position > 0:
-            profit_loss += abs(self.position) * -0.0005
+        # trend_adjustment_factor = 1
+        # loss_penalty_factor = 1.5
+        # stop_loss_factor = 1.25
+        #
+        # if action == 0 and self.position > 0 and emaFast > emaSlow and self.floating_pl > 0:
+        #     trend_adjustment_factor = 1.05
+        # elif action == 0 and self.position < 0 and emaFast < emaSlow and self.floating_pl > 0:
+        #     trend_adjustment_factor = 1.05
+        # elif action == 1 and self.position >= 0 and emaFast > emaSlow and self.floating_pl > 0:
+        #     trend_adjustment_factor = 1.05
+        # elif action == 1 and self.position >= 0 and emaFast < emaSlow and self.floating_pl < 0:
+        #     trend_adjustment_factor = 1.05
+        # elif action == 2 and self.position <= 0 and emaFast < emaSlow and self.floating_pl > 0:
+        #     trend_adjustment_factor = 1.05
+        # elif action == 2 and self.position <= 0 and emaFast > emaSlow and self.floating_pl < 0:
+        #     trend_adjustment_factor = 1.05
+        #
+        # if trend_adjustment_factor > 1:
+        #     profit_loss += abs(self.position) * 0.00005 * trend_adjustment_factor
+        #
+        # if self.floating_pl < abs(self.position) * -0.0100:
+        #     profit_loss += abs(self.position) * -0.0001
+        # elif self.floating_pl < abs(self.position) * -0.0050:
+        #     profit_loss += abs(self.position) * -0.00005
+        #
+        # if self.floating_pl < 0 and action == 1 and self.position < 0:
+        #     profit_loss += abs(self.position) * -0.0005
+        # elif self.floating_pl < 0 and action == 2 and self.position > 0:
+        #     profit_loss += abs(self.position) * -0.0005
 
         if self.total_balance + profit_loss > 0:
             log_return = log(self.total_balance + profit_loss) - log(self.total_balance)
@@ -152,7 +163,8 @@ class Portfolio:
         # profit_make_good_ = 0
         ################
 
-        if not (self.position == 0 and action == 0):
+        if profit_loss != 0:
+
             diff_sharpe_top = self.hist_diff_sharpe_top + decay * (log_return - self.hist_diff_sharpe_top)
             diff_sharpe_bottom = self.hist_diff_sharpe_bottom + decay * (log_return ** 2 - self.hist_diff_sharpe_bottom)
             diff_sharpe = diff_sharpe_top / diff_sharpe_bottom if diff_sharpe_bottom > 0 else 0
@@ -184,21 +196,39 @@ class Portfolio:
 
             profit_make_good = sum_top / sum_bottom if sum_bottom > 0 else 0
 
+            # if action == 1 and self.position < 0:
+            #     order_settle_reward = 1 if self.floating_pl > 0 else -1
+            # elif action == 2 and self.position > 0:
+            #     order_settle_reward = 1 if self.floating_pl > 0 else -1
+
             # reward = profit_make_good - self.stat['profit_make_good']
+            # reward = profit_make_good
+            # reward = diff_sharpe - self.stat['diff_sharpe']
+            reward = diff_sharpe
+            # reward += order_settle_reward
 
             #####
             # self.stat['profit_make_good'] = profit_make_good
             # self.ep_profit_loss.append(log_return)
 
             # reward = diff_sharpe
+            # if self.floating_pl < 0 and ((action == 1 and self.position < 0) or (action == 2 and self.position > 0)):
+            #     log_return = log_return - 1
+            #
             # reward = log_return
-            reward = profit_make_good
+            # reward = profit_make_good
+            self.stat['profit_make_good'] = profit_make_good
+            self.stat['diff_sharpe'] = diff_sharpe
+            self.hist_diff_sharpe_top = diff_sharpe_top
+            self.hist_diff_sharpe_bottom = diff_sharpe_bottom
 
-        # reward = log_return
+            self.sum_top = self.sum_top * ((float(self.counter) - 1) / float(self.counter)) + log_return * (1 / float(self.counter))
+            self.sum_bottom = self.sum_bottom * ((float(self.counter) - 1) / float(self.counter)) + abs(log_return) * (1 / float(self.counter))
 
-        #####
-        # self.stat['reward'] += reward
-        # self.price_prev = price
+            self.counter += 1
+
+        self.stat['reward'] += reward
+        self.price_prev = price
 
         ################
         # print('----------')
@@ -221,9 +251,9 @@ class Portfolio:
         # print('profit_make_good_: {}').format(profit_make_good_)
         ################
 
-        return reward, log_return, profit_make_good, diff_sharpe, diff_sharpe_top, diff_sharpe_bottom
+        # return reward, log_return, profit_make_good, diff_sharpe, diff_sharpe_top, diff_sharpe_bottom
         #####
-        # return reward
+        return reward
 
     def book_ep_stat(self, action, price, reward, log_return, profit_make_good, diff_sharpe, diff_sharpe_top, diff_sharpe_bottom):
         if not (self.position == 0 and action == 0):
