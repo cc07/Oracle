@@ -14,8 +14,8 @@ from sklearn.externals import joblib
 from math import log
 from random import randint
 
-from DQN import DeepQNetwork
-from Portfolio import Portfolio
+from dqn import DeepQNetwork
+from portfolio import Portfolio
 
 # sys.path.append('/Users/cc/documents/ds/matryoshka/')
 # sys.path.append('/home/alchemist/matryoshka/')
@@ -52,14 +52,15 @@ def run(load_sess=False, output_graph=True):
     # X_train = train[1:40000]
     # X_train = X_train.drop(['Timestamp', 'Date', 'Time'], axis=1)
     n_action = 3
-    n_feature = X_train.shape[1] + 13
+    # n_feature = X_train.shape[1] + 13
+    n_width = 13
     n_lookback = 9
     n_channel = 1
 
     MEMORY_SIZE = 500000
-    e_greedy_increment = 0.00025
-    reward_decay = 0.1
-    learning_rate = 0.01
+    e_greedy_increment = 0.000001
+    reward_decay = 0.9
+    learning_rate = 0.005
     replace_target_iter = 5000
     dueling = True
     prioritized = True
@@ -80,7 +81,7 @@ def run(load_sess=False, output_graph=True):
     save_interval = 10000
 
     print('Initializing Oracle')
-    oracle = DeepQNetwork(n_action=n_action, n_lookback=n_lookback, n_feature=n_feature, n_channel=n_channel, memory_size=MEMORY_SIZE,
+    oracle = DeepQNetwork(n_action=n_action, n_width=n_width, n_height=0, n_channel=n_channel, memory_size=MEMORY_SIZE,
         reward_decay=reward_decay, learning_rate=learning_rate, replace_target_iter=replace_target_iter,
         e_greedy_increment=e_greedy_increment, dueling=dueling, output_graph=output_graph, prioritized=prioritized)
 
@@ -97,7 +98,7 @@ def run(load_sess=False, output_graph=True):
     # rhythm.load()
 
     # if (load_sess):
-    # oracle.load(1000)
+    # oracle.load(959)
 
     last_save_step = 0
     # X_train = np.reshape(X_train, (-1, )
@@ -217,7 +218,7 @@ def observe_environment(rhythm, goldkeeper, base_observation, price, dataset, em
     mid = (price[0] + price[1]) / 2
     # observation = np.hstack((dataset, goldkeeper.get_environment(), log(emaFast/emaSlow), log(mid/emaFast), log(mid/emaSlow)))
     observation = np.hstack((dataset, goldkeeper.get_environment(), log(emaFast/emaSlow), log(mid/emaFast), log(mid/emaSlow)))
-    observation = np.hstack((observation, base_observation))
+    # observation = np.hstack((observation, base_observation))
     return observation
 
 if __name__ == '__main__':

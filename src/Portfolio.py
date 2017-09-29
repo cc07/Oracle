@@ -89,18 +89,18 @@ class Portfolio:
         self.trend = 1 if mid > emaSlow else 0
         self.price_prev = price if self.price_prev is None else self.price_prev
 
-        # if action == 0 and self.position > 0:
-        #     profit_loss = (price[0] - self.price_prev[0]) * abs(self.position)
-        # elif action == 0 and self.position < 0:
-        #     profit_loss = (self.price_prev[1] - price[1]) * abs(self.position)
-        # elif action == 1 and self.position >= 0: # open buy
-        #     profit_loss = (price[0] - price[1]) * position + (price[0] - self.price_prev[0]) * abs(self.position)
-        # elif action == 1 and self.position < 0: # settle buy
-        #     profit_loss = (self.price_prev[1] - price[1]) * abs(self.position)
-        # elif action == 2 and self.position <= 0: # open sell
-        #     profit_loss = (price[0] - price[1]) * position + (self.price_prev[1] - price[1]) * abs(self.position)
-        # elif action == 2 and self.position > 0: # settle sell
-        #     profit_loss = (price[0] - self.price_prev[0]) * abs(self.position)
+        if action == 0 and self.position > 0:
+            profit_loss = (price_[0] - price[0]) * abs(self.position)
+        elif action == 0 and self.position < 0:
+            profit_loss = (price[1] - price_[1]) * abs(self.position)
+        elif action == 1 and self.position >= 0: # open buy
+            profit_loss = (price[0] - price[1]) * position + (price_[0] - price[0]) * abs(self.position)
+        elif action == 1 and self.position < 0: # settle buy
+            profit_loss = (price[1] - price_[1]) * abs(self.position)
+        elif action == 2 and self.position <= 0: # open sell
+            profit_loss = (price[0] - price[1]) * position + (price[1] - price_[1]) * abs(self.position)
+        elif action == 2 and self.position > 0: # settle sell
+            profit_loss = (price_[0] - price[0]) * abs(self.position)
         #
         # if profit_loss < 0:
         #     profit_loss = profit_loss * 1.5
@@ -110,10 +110,10 @@ class Portfolio:
         # elif profit_loss < 0 and self.floating_pl < 0 and self.position < 0 and mid > emaFast:
         #     profit_loss = profit_loss * 1.5
 
-        if action == 1 and self.position < 0: # settle buy
-            profit_loss += (self.order_price - price[1]) * abs(self.position)
-        elif action == 2 and self.position > 0:
-            profit_loss += (price[0] - self.order_price) * abs(self.position)
+        # if action == 1 and self.position < 0: # settle buy
+        #     profit_loss += (self.order_price - price[1]) * abs(self.position)
+        # elif action == 2 and self.position > 0:
+        #     profit_loss += (price[0] - self.order_price) * abs(self.position)
 
         # trend_adjustment_factor = 1
         # loss_penalty_factor = 1.5
@@ -204,7 +204,7 @@ class Portfolio:
             # reward = profit_make_good - self.stat['profit_make_good']
             # reward = profit_make_good
             # reward = diff_sharpe - self.stat['diff_sharpe']
-            reward = diff_sharpe
+            # reward = diff_sharpe
             # reward += order_settle_reward
 
             #####
@@ -215,7 +215,7 @@ class Portfolio:
             # if self.floating_pl < 0 and ((action == 1 and self.position < 0) or (action == 2 and self.position > 0)):
             #     log_return = log_return - 1
             #
-            # reward = log_return
+            reward = log_return
             # reward = profit_make_good
             self.stat['profit_make_good'] = profit_make_good
             self.stat['diff_sharpe'] = diff_sharpe
