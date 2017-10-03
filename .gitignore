@@ -2,3 +2,4 @@ data/*
 model/*
 log/*
 metastore_db/*
+*/*.pyc
