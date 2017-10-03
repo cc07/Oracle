@@ -2,6 +2,6 @@ data/*
 model/*
 log/*
 metastore_db/*
-*/*.pyc
-*/*.ipynb
-__pycache__/*
+*.pyc
+*.ipynb
+__pycache__/
